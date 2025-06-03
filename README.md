@@ -8,7 +8,7 @@ A WhatsApp bot built with Node.js that helps manage real estate properties and a
 - AI-powered property recommendations
 - Appointment scheduling
 - WhatsApp integration
-- Firebase database integration
+- Mongodb database integration
 
 ## Prerequisites
 
@@ -22,8 +22,8 @@ A WhatsApp bot built with Node.js that helps manage real estate properties and a
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/whatsapp-realestate-bot.git
-cd whatsapp-realestate-bot
+git clone https://github.com/Techyrushi/WhatsApp-ChatBot.git
+cd WhatsApp-ChatBot
 ```
 
 2. Install dependencies:
