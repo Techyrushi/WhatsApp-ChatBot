@@ -94,7 +94,7 @@ class Helpers {
 
   // Check if message contains property number
   static extractPropertyNumber(message) {
-    const matches = message.match(/\b([1-9]\d?)\b/);
+    const matches = message.match(/\b([1-4]\d?)\b/);
     return matches ? parseInt(matches[1]) : null;
   }
 

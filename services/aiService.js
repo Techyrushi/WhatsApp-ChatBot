@@ -11,6 +11,18 @@ class AIService {
       },
       apiKey: process.env.OPENROUTER_API_KEY
     });
+    
+    // Define conversation states for the real estate bot flow
+    this.conversationStates = {
+      WELCOME: 'welcome',
+      LOCATION: 'location',
+      BUDGET: 'budget',
+      BHK: 'bhk',
+      PROPERTY_MATCH: 'property_match',
+      SCHEDULE_VISIT: 'schedule_visit',
+      COLLECT_INFO: 'collect_info',
+      COMPLETED: 'completed'
+    };
   }
 
   async generateResponse(message, context = {}) {
@@ -24,7 +36,7 @@ class AIService {
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage }
         ],
-        max_tokens: 200,
+        max_tokens: 10000,
         temperature: 0.7
       });
 
@@ -36,7 +48,7 @@ class AIService {
   }
 
   buildSystemPrompt(context) {
-    let prompt = `You are a helpful real estate assistant for PropertyFinder, a WhatsApp chatbot that helps users find properties and schedule viewings.
+    let prompt = `You are a helpful real estate assistant for Malpure Group, a WhatsApp chatbot that helps users find properties and schedule viewings.
 
 Your role:
 - Help users find their perfect property
@@ -46,24 +58,60 @@ Your role:
 - Keep responses short for WhatsApp (under 200 characters when possible)
 
 Current context:
-- Conversation state: ${context.state || 'initial'}
-- Available properties: ${context.availableProperties || 0}`;
+- Conversation state: ${context.state || 'initial'}`;
 
-    if (context.selectedProperty) {
-      prompt += `\n- Currently discussing: ${context.selectedProperty.title}`;
+    // Add state-specific context
+    switch (context.state) {
+      case this.conversationStates.WELCOME:
+        prompt += `\n- You are greeting the user for the first time`;
+        break;
+      case this.conversationStates.LOCATION:
+        prompt += `\n- You are asking the user for their preferred location`;
+        break;
+      case this.conversationStates.BUDGET:
+        prompt += `\n- User's preferred location: ${context.userPreferences?.location || 'Not specified'}`;
+        prompt += `\n- You are asking the user for their budget range`;
+        break;
+      case this.conversationStates.BHK:
+        prompt += `\n- User's preferred location: ${context.userPreferences?.location || 'Not specified'}`;
+        prompt += `\n- User's budget range: ${context.userPreferences?.budget?.min || 'Not specified'} - ${context.userPreferences?.budget?.max || 'Not specified'}`;
+        prompt += `\n- You are asking the user for their preferred number of bedrooms (BHK)`;
+        break;
+      case this.conversationStates.PROPERTY_MATCH:
+        prompt += `\n- User's preferences: ${JSON.stringify(context.userPreferences || {})}`;
+        prompt += `\n- Available matching properties: ${context.availableProperties || 0}`;
+        break;
+      case this.conversationStates.SCHEDULE_VISIT:
+        prompt += `\n- Selected property: ${context.selectedProperty?.title || 'Not specified'}`;
+        prompt += `\n- You are asking if the user wants to schedule a visit`;
+        break;
+      case this.conversationStates.COLLECT_INFO:
+        prompt += `\n- Selected property: ${context.selectedProperty?.title || 'Not specified'}`;
+        prompt += `\n- You are collecting user information for scheduling a visit`;
+        break;
+      case this.conversationStates.COMPLETED:
+        prompt += `\n- Appointment has been scheduled`;
+        prompt += `\n- User info: ${JSON.stringify(context.userInfo || {})}`;
+        break;
     }
 
-    if (context.userPreferences) {
+    if (context.selectedProperty) {
+      prompt += `\n- Currently discussing property: ${JSON.stringify(context.selectedProperty)}`;
+    }
+
+    if (context.userPreferences && context.state !== this.conversationStates.BHK) {
       prompt += `\n- User preferences: ${JSON.stringify(context.userPreferences)}`;
     }
 
     prompt += `\n\nGuidelines:
-- If user asks about properties, guide them to type "properties"
-- If user seems interested in scheduling, guide them toward that process
-- If user asks about locations, prices, or amenities, provide helpful information
-- Always end with a helpful next step suggestion
-- Use emojis appropriately for WhatsApp
-- Be conversational but stay focused on real estate`;
+- Follow the real estate bot flow: Welcome → Location → Budget → BHK → Property Match → Schedule Visit → Collect Info
+- Keep responses concise and engaging for WhatsApp
+- Use emojis appropriately for a friendly tone
+- Provide personalized responses based on user preferences
+- For property details, highlight key features that match user preferences
+- When scheduling visits, be clear about the next steps
+- Always maintain a professional but friendly tone
+- Use Indian Rupee format (₹) for prices`;
 
     return prompt;
   }
@@ -71,21 +119,25 @@ Current context:
   async extractUserIntent(message) {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "deepseek/deepseek-r1:free",
         messages: [{
           role: "system",
           content: `Analyze this user message and return the primary intent. Return only one of these intents:
           - greeting
+          - location_info
+          - budget_info
+          - bhk_info
           - view_properties
           - property_details
           - schedule_viewing
+          - provide_contact_info
+          - restart
           - ask_question
-          - provide_info
           - other
           
           Message: "${message}"`
         }],
-        max_tokens: 1000,
+        max_tokens: 50,
         temperature: 0.1
       });
 
@@ -93,6 +145,104 @@ Current context:
     } catch (error) {
       console.error('Intent extraction error:', error);
       return 'other';
+    }
+  }
+
+  async extractLocation(message) {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "deepseek/deepseek-r1:free",
+        messages: [{
+          role: "system",
+          content: `Extract the location mentioned in this message: "${message}". If multiple locations are mentioned, return the most specific one. If no clear location is mentioned, respond with "UNCLEAR". Only return the location name, nothing else.`
+        }],
+        max_tokens: 50,
+        temperature: 0.1
+      });
+
+      return completion.choices[0].message.content.trim();
+    } catch (error) {
+      console.error('Location extraction error:', error);
+      return 'UNCLEAR';
+    }
+  }
+
+  async extractBudget(message) {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "deepseek/deepseek-r1:free",
+        messages: [{
+          role: "system",
+          content: `Extract the budget range from this message: "${message}". Format the response as MIN-MAX in numbers only (e.g., "1000000-2000000"). Convert any lakh/crore values to their numeric equivalents. If no clear budget is mentioned, respond with "UNCLEAR".`
+        }],
+        max_tokens: 50,
+        temperature: 0.1
+      });
+
+      const response = completion.choices[0].message.content.trim();
+      
+      if (response === 'UNCLEAR') {
+        return { min: null, max: null };
+      }
+      
+      const [min, max] = response.split('-').map(num => parseInt(num.trim()));
+      return { min, max };
+    } catch (error) {
+      console.error('Budget extraction error:', error);
+      return { min: null, max: null };
+    }
+  }
+
+  async extractBHK(message) {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "deepseek/deepseek-r1:free",
+        messages: [{
+          role: "system",
+          content: `Extract the number of bedrooms (BHK) from this message: "${message}". Return only the number (e.g., "2"). If no clear BHK is mentioned, respond with "UNCLEAR".`
+        }],
+        max_tokens: 50,
+        temperature: 0.1
+      });
+
+      const response = completion.choices[0].message.content.trim();
+      
+      if (response === 'UNCLEAR') {
+        return null;
+      }
+      
+      return parseInt(response);
+    } catch (error) {
+      console.error('BHK extraction error:', error);
+      return null;
+    }
+  }
+
+  async extractUserInfo(message) {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "deepseek/deepseek-r1:free",
+        messages: [{
+          role: "system",
+          content: `Extract the following information from this message:\n` +
+                  `"${message}"\n\n` +
+                  `Format the response as JSON with these fields:\n` +
+                  `{"name": "extracted name", "phone": "extracted phone", "time": "extracted time"}\n` +
+                  `If any field is missing, set its value to null.`
+        }],
+        max_tokens: 100,
+        temperature: 0.1
+      });
+
+      try {
+        return JSON.parse(completion.choices[0].message.content.trim());
+      } catch (e) {
+        console.error('Error parsing user info JSON:', e);
+        return { name: null, phone: null, time: null };
+      }
+    } catch (error) {
+      console.error('User info extraction error:', error);
+      return { name: null, phone: null, time: null };
     }
   }
 

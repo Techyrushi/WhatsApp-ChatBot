@@ -19,17 +19,61 @@ class AppointmentService {
 
   async createAppointment(appointmentData) {
     try {
-      const appointment = new Appointment({
+      // Validate appointment data
+      if (!appointmentData.propertyId) {
+        throw new Error('Property ID is required');
+      }
+      
+      if (!appointmentData.userName || !appointmentData.userPhone) {
+        throw new Error('User information is incomplete');
+      }
+      
+      if (!appointmentData.dateTime) {
+        throw new Error('Appointment date and time are required');
+      }
+      
+      // Create appointment with default status if not provided
+      const appointmentToCreate = {
         ...appointmentData,
-        status: 'scheduled'
-      });
-
+        status: appointmentData.status || 'scheduled',
+        createdAt: new Date()
+      };
+      
+      const appointment = new Appointment(appointmentToCreate);
+      await appointment.validate();
       await appointment.save();
-      console.log(`Appointment created with ID: ${appointment._id}`);
-      return appointment._id;
+      
+      // Send confirmation notifications
+      await this.sendAppointmentConfirmation(appointment);
+      
+      return appointment;
     } catch (error) {
       console.error('Error creating appointment:', error);
       throw error;
+    }
+  }
+
+  // Send appointment confirmation to user and notify internal team
+  async sendAppointmentConfirmation(appointment) {
+    try {
+      // Log confirmation for now (in a real system, this would send actual notifications)
+      console.log(`Sending appointment confirmation to user: ${appointment.userName} (${appointment.userPhone})`);
+      console.log(`Appointment ID: ${appointment._id}`);
+      console.log(`Property ID: ${appointment.propertyId}`);
+      console.log(`Date/Time: ${appointment.dateTime}`);
+      
+      // In a production system, this would:
+      // 1. Send WhatsApp confirmation to user
+      // 2. Send email notification to sales team
+      // 3. Update CRM system
+      // 4. Schedule reminder notifications
+      
+      return true;
+    } catch (error) {
+      console.error('Error sending appointment confirmation:', error);
+      // Don't throw the error - we don't want to fail the appointment creation
+      // just because notifications failed
+      return false;
     }
   }
 

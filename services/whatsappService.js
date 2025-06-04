@@ -86,7 +86,7 @@ class WhatsAppService {
   static templates = {
     welcome: (properties) => {
       const propertyList = properties.map((prop, index) => prop.formatForList(index)).join('\n\n');
-      return `🏠 *Welcome to PropertyFinder!*\n\n` +
+      return `🏠 *Welcome to Malpure Group!*\n\n` +
              `I'm here to help you find your dream property and schedule viewings.\n\n` +
              `Here are our available properties:\n\n${propertyList}\n\n` +
              `Reply with the property number to see details, or ask me anything about real estate!`;
