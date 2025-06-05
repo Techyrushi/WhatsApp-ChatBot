@@ -96,7 +96,7 @@ propertySchema.index({ availability: 1, isPromoted: 1 });
 // Format property for WhatsApp display
 propertySchema.methods.formatForList = function(index) {
   // Basic property information
-  let formattedText = `*${index + 1}. ${this.title}*\n`;
+  let formattedText = `*${index}. ${this.title}*\n`;
   formattedText += `   📍 ${this.location}\n`;
   formattedText += `   💰 ₹${this.price.toLocaleString('en-IN')}\n`;
   formattedText += `   🏠 ${this.bedrooms}BHK, ${this.area.value} ${this.area.unit}\n`;
@@ -119,7 +119,33 @@ propertySchema.methods.formatForList = function(index) {
 };
 
 // Format detailed property information
-propertySchema.methods.formatDetails = function() {
+propertySchema.methods.formatDetails = function(language) {
+  if (language === 'marathi') {
+    // Property type translations
+    const typeTranslations = {
+      'apartment': 'अपार्टमेंट',
+      'villa': 'विला',
+      'house': 'घर',
+      'plot': 'भूखंड',
+      'commercial': 'व्यावसायिक',
+      'farmhouse': 'फार्महाउस'
+    };
+    
+    // Translate property type
+    const translatedType = typeTranslations[this.type] || this.type;
+    
+    return `🏠 *${this.title}*\n\n` +
+           `📍 स्थान: ${this.location}\n` +
+           `💰 किंमत: ₹${this.price.toLocaleString('en-IN')}\n` +
+           `🛏️ बेडरूम: ${this.bedrooms}\n` +
+           `🚿 बाथरूम: ${this.bathrooms}\n` +
+           `📐 क्षेत्रफळ: ${this.area.value} ${this.area.unit}\n` +
+           `🏢 प्रकार: ${translatedType}\n` +
+           `✨ सुविधा: ${this.amenities.join(', ')}\n\n` +
+           `${this.description}`;
+  }
+  
+  // Default to English
   return `🏠 *${this.title}*\n\n` +
          `📍 Location: ${this.location}\n` +
          `💰 Price: ₹${this.price.toLocaleString('en-IN')}\n` +

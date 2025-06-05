@@ -10,9 +10,10 @@ const conversationSchema = new mongoose.Schema({
   userId: { type: String, required: true, unique: true },
   state: { 
     type: String, 
-    enum: ['welcome', 'location', 'budget', 'bhk', 'property_match', 'schedule_visit', 'collect_info', 'completed'],
-    default: 'welcome'
+    enum: ['language_selection', 'welcome', 'location', 'budget', 'bhk', 'property_match', 'schedule_visit', 'collect_info', 'completed'],
+    default: 'language_selection'
   },
+  language: { type: String, enum: ['english', 'marathi'], default: 'english' },
   preferences: {
     location: { type: String },
     budget: {
@@ -26,7 +27,9 @@ const conversationSchema = new mongoose.Schema({
   userInfo: {
     name: { type: String },
     phone: { type: String },
-    preferredTime: { type: Date }
+    preferredTime: { type: Date },
+    specialRequirements: { type: String },
+    awaitingSpecialRequirements: { type: Boolean, default: false }
   },
   lastMessageTimestamp: { type: Date, default: Date.now }
 }, { timestamps: true });
@@ -69,7 +72,8 @@ class ConversationService {
       if (!conversation) {
         conversation = new Conversation({
           userId,
-          state: 'welcome',
+          state: 'language_selection',
+          language: 'english',
           preferences: {}
         });
         await conversation.save();
@@ -87,6 +91,9 @@ class ConversationService {
     let response;
     
     switch (state) {
+      case 'language_selection':
+        response = await this.handleLanguageSelectionState(conversation, message);
+        break;
       case 'welcome':
         response = await this.handleWelcomeState(conversation, message);
         break;
@@ -113,11 +120,44 @@ class ConversationService {
         break;
       default:
         response = 'I\'m not sure how to respond to that. Let\'s start over.';
-        conversation.state = 'welcome';
+        conversation.state = 'language_selection';
         await conversation.save();
     }
     
     return response;
+  }
+
+  async handleLanguageSelectionState(conversation, message) {
+    // Check if this is the first message or an invalid selection
+    if (message && message.match(/^[1-2]$/)) {
+      // Process language selection
+      const languageChoice = parseInt(message);
+      
+      if (languageChoice === 1) {
+        conversation.language = 'english';
+      } else if (languageChoice === 2) {
+        conversation.language = 'marathi';
+      }
+      
+      // Move to welcome state
+      conversation.state = 'welcome';
+      await conversation.save();
+      
+      // Return welcome message in selected language
+      return this.getWelcomeMessage(conversation.language);
+    }
+    
+    // First message or invalid selection, ask for language preference
+    return 'Welcome to Malpure Group! 🏠\n\nPlease select your preferred language:\n\n1. English\n2. मराठी (Marathi)\n\nReply with just the number (1-2) to select your language.';
+  }
+
+  getWelcomeMessage(language) {
+    if (language === 'marathi') {
+      return 'मालपुरे ग्रुपमध्ये आपले स्वागत आहे! 🏠\n\nमी आपल्याला आपले स्वप्नातील घर शोधण्यास मदत करण्यासाठी येथे आहे. सुरू करण्यासाठी, कृपया आपण फक्त क्रमांक (1) सह उत्तर द्या.';
+    }
+    
+    // Default to English
+    return 'Welcome to Malpure Group! 🏠\n\nI\'m here to help you find your dream property. To get started, please select a location you\'re interested in:\n\n1. Nashik\n2. Mumbai\n3. Pune\n4. Other\n\n\nReply with just the number (1-4) to select your preferred location.';
   }
 
   async handleWelcomeState(conversation, message) {
@@ -125,9 +165,17 @@ class ConversationService {
     conversation.state = 'location';
     await conversation.save();
     
-    // Provide location options as a numbered list
-    return 'Welcome to Malpure Group! 🏠\n\nI\'m here to help you find your dream property. To get started, please select a location you\'re interested in:\n\n1. Nashik\n2. Mumbai\n3. Pune\n4. Other\n\n\nReply with just the number (1-4) to select your preferred location.';
-
+    // Provide location options in the selected language
+    return this.getLocationOptionsMessage(conversation.language);
+  }
+  
+  getLocationOptionsMessage(language) {
+    if (language === 'marathi') {
+      return 'कृपया आपण स्वारस्य असलेले स्थान निवडा:\n\n1. नाशिक\n2. मुंबई\n3. पुणे\n4. इतर\n\n\nआपले पसंतीचे स्थान निवडण्यासाठी फक्त क्रमांक (1-4) सह उत्तर द्या.';
+    }
+    
+    // Default to English
+    return 'Please select a location you\'re interested in:\n\n1. Nashik\n2. Mumbai\n3. Pune\n4. Other\n\n\nReply with just the number (1-4) to select your preferred location.';
   }
 
   async handleLocationState(conversation, message) {
@@ -141,13 +189,13 @@ class ConversationService {
     
     // Check if this is the first message or an invalid selection
     if (!message.match(/^[1-4]$/) || message === '4') {
-      if (message === '4' || message.toLowerCase() === 'other') {
-        return 'Please type the name of the location you\'re interested in.';
+      if (message === '4' || message.toLowerCase() === 'other' || 
+          message.toLowerCase() === 'इतर') { // Added Marathi word for 'other'
+        return this.getTypeLocationMessage(conversation.language);
       }
       
       // Show location options again
-      return 'Please select a valid location option by replying with a number from 1 to 3:\n\n' +
-             '1. Nashik\n2. Mumbai\n3. Pune\n4. Other';
+      return this.getLocationOptionsMessage(conversation.language);
     }
     
     // Process location selection
@@ -160,6 +208,39 @@ class ConversationService {
     await conversation.save();
     
     // Present budget options
+    return this.getBudgetOptionsMessage(conversation.language, selectedLocation);
+  }
+  
+  getTypeLocationMessage(language) {
+    if (language === 'marathi') {
+      return 'कृपया आपण स्वारस्य असलेल्या स्थानाचे नाव टाइप करा.';
+    }
+    
+    // Default to English
+    return 'Please type the name of the location you\'re interested in.';
+  }
+  
+  getBudgetOptionsMessage(language, selectedLocation) {
+    if (language === 'marathi') {
+      const locationNames = {
+        'Nashik': 'नाशिक',
+        'Mumbai': 'मुंबई',
+        'Pune': 'पुणे',
+        'Other': 'इतर'
+      };
+      
+      const marathiLocation = locationNames[selectedLocation] || selectedLocation;
+      
+      return `उत्तम! आपण ${marathiLocation} निवडले आहे. आता, कृपया आपली बजेट श्रेणी निवडा:\n\n` +
+             '1. ₹50 लाखांपेक्षा कमी\n' +
+             '2. ₹50 लाख - ₹1 कोटी\n' +
+             '3. ₹1 कोटी - ₹2 कोटी\n' +
+             '4. ₹2 कोटी - ₹5 कोटी\n' +
+             '5. ₹5 कोटीपेक्षा जास्त\n\n' +
+             'आपली बजेट श्रेणी निवडण्यासाठी फक्त क्रमांक (1-5) सह उत्तर द्या.';
+    }
+    
+    // Default to English
     return `Great! You've selected ${selectedLocation}. Now, please select your budget range:\n\n` +
            '1. Under ₹50 Lakhs\n' +
            '2. ₹50 Lakhs - ₹1 Crore\n' +
@@ -182,12 +263,7 @@ class ConversationService {
     // Check if this is a valid budget selection
     if (!message.match(/^[1-5]$/)) {
       // Show budget options again
-      return `Please select a valid budget option by replying with a number from 1 to 5:\n\n` +
-             '1. Under ₹50 Lakhs\n' +
-             '2. ₹50 Lakhs - ₹1 Crore\n' +
-             '3. ₹1 Crore - ₹2 Crore\n' +
-             '4. ₹2 Crore - ₹5 Crore\n' +
-             '5. Above ₹5 Crore';
+      return this.getInvalidBudgetMessage(conversation.language);
     }
     
     // Process budget selection
@@ -200,25 +276,44 @@ class ConversationService {
     await conversation.save();
     
     // Present BHK options as a numbered list
+    return this.getBHKOptionsMessage(conversation.language);
+  }
+  
+  getInvalidBudgetMessage(language) {
+    if (language === 'marathi') {
+      return 'कृपया वैध बजेट पर्याय निवडा (1-5).';
+    }
+    
+    // Default to English
+    return 'Please select a valid budget option (1-5).';
+  }
+  
+  getBHKOptionsMessage(language) {
+    if (language === 'marathi') {
+      return 'उत्तम! आता, कृपया आपण शोधत असलेल्या बेडरूमची संख्या (BHK) निवडा:\n\n1. 1 BHK\n2. 2 BHK\n3. 3 BHK\n4. 4 BHK\n5. 5+ BHK\n\nआपली पसंती निवडण्यासाठी फक्त क्रमांक (1-5) सह उत्तर द्या.';
+    }
+    
+    // Default to English
     return 'Great! Now, please select the number of bedrooms (BHK) you\'re looking for:\n\n1. 1 BHK\n2. 2 BHK\n3. 3 BHK\n4. 4 BHK\n5. 5+ BHK\n\nReply with just the number (1-5) to select your preference.';
   }
 
   async handleBHKState(conversation, message) {
-    // Check if this is the first time in BHK state (no previous message)
-    if (message.trim().toLowerCase() === 'bhk options' || !message.match(/^[1-5]$/)) {
-      // Present BHK options as a numbered list
-      return 'Please select the number of bedrooms (BHK) you\'re looking for:\n\n1. 1 BHK\n2. 2 BHK\n3. 3 BHK\n4. 4 BHK\n5. 5+ BHK\n\nReply with just the number (1-5) to select your preference.'
+    // Check if this is a valid BHK selection
+    if (!message.match(/^[1-5]$/) && 
+        message.toLowerCase() !== 'bhk options' && 
+        message.toLowerCase() !== 'बीएचके पर्याय') { // Added Marathi for 'bhk options'
+      // Show BHK options again
+      return this.getInvalidBHKOptionMessage(conversation.language);
     }
     
-    // User has selected a BHK option (1-5)
-    const bhkChoice = parseInt(message.trim());
-    
-    if (isNaN(bhkChoice) || bhkChoice < 1 || bhkChoice > 5) {
-      return 'Please select a valid option by replying with a number from 1 to 5.'
+    // If user asks for BHK options again
+    if (message.toLowerCase() === 'bhk options' || 
+        message.toLowerCase() === 'बीएचके पर्याय') {
+      return this.getBHKOptionsMessage(conversation.language);
     }
     
-    // Map the selection to actual BHK value (for 5, we'll use 5 as a minimum)
-    const bhkValue = bhkChoice === 5 ? 5 : bhkChoice;
+    // Process BHK selection
+    const bhkValue = parseInt(message);
     
     // Save BHK preference
     conversation.preferences.bhk = bhkValue;
@@ -226,45 +321,57 @@ class ConversationService {
     await conversation.save();
     
     // Find matching properties
-    const matchedProperties = await this.findMatchingProperties(conversation.preferences);
+    const matchingProperties = await this.findMatchingProperties(conversation.preferences);
     
-    // Save matched properties (even if empty)
-    conversation.matchedProperties = matchedProperties.map(p => p._id);
+    // Save matched properties to conversation
+    conversation.matchedProperties = matchingProperties.map(p => p._id);
     await conversation.save();
     
     // Generate property match response
-    return this.generatePropertyMatchResponse(matchedProperties, conversation.preferences);
+    return this.generatePropertyMatchResponse(conversation, matchingProperties, conversation.language);
+  }
+  
+  getInvalidBHKOptionMessage(language) {
+    if (language === 'marathi') {
+      return 'कृपया वैध BHK पर्याय निवडा (1-5).';
+    }
+    
+    // Default to English
+    return 'Please select a valid BHK option (1-5).';
   }
 
   async findMatchingProperties(preferences) {
     try {
-      // Create query criteria based on user preferences
-      const criteria = {
-        availability: 'available'
-      };
+      // Build query based on preferences
+      const query = {};
       
-      // Add location criteria if provided
-      if (preferences.location) {
-        criteria.location = { $regex: new RegExp(preferences.location, 'i') };
+      // Add location filter if provided
+      if (preferences.location && preferences.location !== 'Other') {
+        query.location = { $regex: new RegExp(preferences.location, 'i') };
       }
       
-      // Add budget criteria if provided
-      if (preferences.budget && preferences.budget.min && preferences.budget.max) {
-        criteria.price = { $gte: preferences.budget.min, $lte: preferences.budget.max };
-      } else if (preferences.budget && preferences.budget.min) {
-        criteria.price = { $gte: preferences.budget.min };
-      } else if (preferences.budget && preferences.budget.max) {
-        criteria.price = { $lte: preferences.budget.max };
+      // Add budget filter if provided
+      if (preferences.budget) {
+        query.price = { 
+          $gte: preferences.budget.min,
+          $lte: preferences.budget.max
+        };
       }
       
-      // Add BHK criteria if provided
+      // Add BHK filter if provided
       if (preferences.bhk) {
-        criteria.bedrooms = preferences.bhk;
+        // For 5+ BHK, search for 5 or more
+        if (preferences.bhk === 5) {
+          query.bedrooms = { $gte: 5 };
+        } else {
+          query.bedrooms = preferences.bhk;
+        }
       }
       
-      // Query the database for matching properties
-      const properties = await Property.find(criteria).limit(5);
-      console.log(`Found ${properties.length} matching properties for criteria:`, criteria);
+      // Find matching properties
+      const properties = await Property.find(query)
+        .sort({ isPromoted: -1, price: 1 })
+        .limit(5);
       
       return properties;
     } catch (error) {
@@ -273,235 +380,285 @@ class ConversationService {
     }
   }
 
-  generatePropertyMatchResponse(properties, preferences) {
-    // Handle case when no properties are found
+  async generatePropertyMatchResponse(conversation, properties, language) {
+    // Get user preferences for display
+    const preferences = conversation.preferences;
+    
+    // Format budget for display
+    const minBudget = preferences.budget ? 
+      `₹${(preferences.budget.min / 100000).toFixed(2)} Lakhs` : 'Not specified';
+    const maxBudget = preferences.budget ? 
+      `₹${(preferences.budget.max / 100000).toFixed(2)} Lakhs` : 'Not specified';
+    
+    // Handle no matching properties
     if (!properties || properties.length === 0) {
+      if (language === 'marathi') {
+        return `मला आपल्या निकषांशी जुळणारी कोणतीही मालमत्ता सापडली नाही. आपण वेगळ्या प्राधान्यांसह प्रयत्न करू इच्छिता? नवीन शोध सुरू करण्यासाठी 'restart' किंवा 'पुन्हा सुरू करा' उत्तर द्या.`;
+      }
       return `I couldn't find any properties matching your criteria. Would you like to try with different preferences? Reply 'restart' to begin a new search.`;
     }
     
-    // Format each property for display
-    const propertyList = properties.map((prop, index) => {
-      return `${index + 1}. ${prop.title}\n   📍 ${prop.location}\n   💰 ₹${prop.price.toLocaleString('en-IN')}\n   🏠 ${prop.bedrooms}BHK, ${prop.area.value} ${prop.area.unit}`;
-    }).join('\n\n');
+    // Format properties for display
+    const propertyList = properties.map((property, index) => 
+      property.formatForList(index + 1) // index + 1 because we want to start from 1, not 0
+    ).join('\n\n');
     
-    // Format budget display
-    const minBudget = preferences.budget && preferences.budget.min ? `₹${preferences.budget.min.toLocaleString('en-IN')}` : 'Not specified';
-    const maxBudget = preferences.budget && preferences.budget.max ? `₹${preferences.budget.max.toLocaleString('en-IN')}` : 'Not specified';
+    if (language === 'marathi') {
+      return `🏠 *आपल्या निकषांशी जुळणाऱ्या ${properties.length} मालमत्ता सापडल्या!*\n\n` +
+              `स्थान: ${preferences.location || 'निर्दिष्ट नाही'}\n` +
+              `बजेट: ${minBudget} - ${maxBudget}\n` +
+              `बेडरूम: ${preferences.bhk || 'निर्दिष्ट नाही'} BHK\n\n` +
+              `${propertyList}\n\n` +
+              `अधिक माहितीसाठी मालमत्तेचा क्रमांक टाइप करा (1-${properties.length}).`;
+    }
     
+    // Default to English
     return `🏠 *Found ${properties.length} properties matching your criteria!*\n\n` +
            `Location: ${preferences.location || 'Not specified'}\n` +
            `Budget: ${minBudget} - ${maxBudget}\n` +
-           `BHK: ${preferences.bhk || 'Not specified'}\n\n` +
+           `Bedrooms: ${preferences.bhk || 'Not specified'} BHK\n\n` +
            `${propertyList}\n\n` +
-           `Reply with the property number to see more details and images.`;
+           `Type the property number (1-${properties.length}) for more information.`;
   }
 
   async handlePropertyMatchState(conversation, message) {
-    // Check if user selected a property by number
-    const propertyIndex = parseInt(message.trim()) - 1;
-    
-    // Populate matched properties
-    await conversation.populate('matchedProperties');
-    
-    // Check if there are any matched properties
-    if (conversation.matchedProperties.length === 0) {
-      // No properties found, restart the conversation
+    // Check if user wants to restart
+    if (message.toLowerCase() === 'restart' || 
+        message.toLowerCase() === 'पुन्हा सुरू करा') { // Added Marathi for 'restart'
+      // Reset conversation to welcome state
       conversation.state = 'welcome';
+      conversation.preferences = {};
+      conversation.matchedProperties = [];
+      conversation.selectedProperty = null;
       await conversation.save();
-      return this.handleWelcomeState(conversation, message);
+      
+      // Return welcome message
+      return this.getWelcomeMessage(conversation.language);
     }
     
-    if (isNaN(propertyIndex) || propertyIndex < 0 || propertyIndex >= conversation.matchedProperties.length) {
-      return `Please reply with a valid property number between 1 and ${conversation.matchedProperties.length}.`;
+    // Check if user has selected a property
+    const propertyNumber = parseInt(message);
+    if (isNaN(propertyNumber) || 
+        propertyNumber < 1 || 
+        propertyNumber > conversation.matchedProperties.length) {
+      // Invalid property selection
+      if (conversation.language === 'marathi') {
+        return `कृपया वैध मालमत्ता क्रमांक निवडा (1-${conversation.matchedProperties.length}).`;
+      }
+      return `Please select a valid property number (1-${conversation.matchedProperties.length}).`;
     }
     
-    // Set selected property
-    conversation.selectedProperty = conversation.matchedProperties[propertyIndex];
+    // Get selected property
+    const selectedPropertyId = conversation.matchedProperties[propertyNumber - 1];
+    const property = await Property.findById(selectedPropertyId);
+    
+    if (!property) {
+      if (conversation.language === 'marathi') {
+        return 'माफ करा, निवडलेली मालमत्ता आढळली नाही. कृपया दुसरी मालमत्ता निवडा.';
+      }
+      return 'Sorry, the selected property was not found. Please select another property.';
+    }
+    
+    // Save selected property
+    conversation.selectedProperty = selectedPropertyId;
     conversation.state = 'schedule_visit';
     await conversation.save();
     
-    // Get property details
-    const property = await Property.findById(conversation.selectedProperty);
+    // Format property details
+    const propertyDetails = property.formatDetails(conversation.language);
     
-    // Format property details using the property's formatDetails method
-    let propertyDetails = property.formatDetails();
+    // Add options for scheduling a visit
+    if (conversation.language === 'marathi') {
+      return `${propertyDetails}\n\n` +
+             `काय करू इच्छिता?\n\n` +
+             `1. या मालमत्तेला भेट देण्यासाठी वेळ ठरवा\n` +
+             `2. मालमत्ता यादीकडे परत जा\n\n` +
+             `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-2).`;
+    }
     
-    // Add a prompt with clear options
-    propertyDetails += '\n\nOptions:\n' +
-                      '1. Schedule a site visit\n' +
-                      '2. Go back to property list\n\n' +
-                      'Reply with the number of your choice (1-2).';
-    
-    // In a real implementation, you would send property images here
-    // For now, we'll just return the formatted details
-    return propertyDetails;
+    return `${propertyDetails}\n\n` +
+           `What would you like to do?\n\n` +
+           `1. Schedule a visit to this property\n` +
+           `2. Go back to property list\n\n` +
+           `Reply with the number of your choice (1-2).`;
   }
 
   async handleScheduleVisitState(conversation, message) {
-    // Check if this is the first message in this state
-    if (!message.match(/^[1-2]$/)) {
-      // Present clear Yes/No options
-      return 'Would you like to schedule a site visit for this property?\n\n' +
-             '1. Yes, schedule a visit\n' +
-             '2. No, go back to property list\n\n' +
-             'Reply with 1 for Yes or 2 for No.';
-    }
-    
-    // Process user selection
-    const userChoice = parseInt(message.trim());
-    
-    if (userChoice === 2) {
-      // User doesn't want to schedule a visit
-      conversation.state = 'property_match';
+    // Check user's choice
+    if (message === '1') {
+      // User wants to schedule a visit
+      conversation.state = 'collect_info';
+      conversation.userInfo = {}; // Initialize user info
       await conversation.save();
       
-      return 'No problem! You can continue browsing properties. Reply with a property number to see details, or type "restart" to start a new search.';
+      // Ask for user's name
+      if (conversation.language === 'marathi') {
+        return 'उत्तम! आपल्या भेटीची व्यवस्था करण्यासाठी, आम्हाला काही माहिती हवी आहे.\n\nकृपया आपले पूर्ण नाव प्रदान करा.';
+      }
+      return 'Great! To arrange your visit, we need some information.\n\nPlease provide your full name.';
+    } else if (message === '2') {
+      // User wants to go back to property list
+      conversation.state = 'property_match';
+      conversation.selectedProperty = null;
+      await conversation.save();
+      
+      // Show property list again
+      const properties = await Property.find({
+        _id: { $in: conversation.matchedProperties }
+      });
+      
+      return this.generatePropertyMatchResponse(conversation, properties, conversation.language);
+    } else {
+      // Invalid choice
+      if (conversation.language === 'marathi') {
+        return 'कृपया वैध पर्याय निवडा (1-2).';
+      }
+      return 'Please select a valid option (1-2).';
     }
-    
-    // User wants to schedule a visit
-    conversation.state = 'collect_info';
-    await conversation.save();
-    
-    return 'Great! To schedule a site visit, I need a few details from you.\n\n' +
-           'Please provide your full name, phone number, and preferred date/time for the visit in this format:\n\n' +
-           'Name: John Doe\n' +
-           'Phone: 9876543210\n' +
-           'Time: Tomorrow at 2 PM';
   }
 
   async handleCollectInfoState(conversation, message) {
-    // Check if we have partial information already
     const userInfo = conversation.userInfo || {};
     
-    // If we don't have a name yet
+    // If we don't have name yet
     if (!userInfo.name) {
-      // Get property details for personalized greeting
-      const property = await Property.findById(conversation.selectedProperty);
-      const propertyName = property ? property.title : 'this property';
+      // Save name
+      conversation.userInfo = { ...userInfo, name: message.trim() };
+      await conversation.save();
       
-      // Check if this is the first message
-      if (message.toLowerCase().includes('name:') || message.match(/^[a-zA-Z\s]+$/)) {
-        // Extract name
-        const name = message.includes('name:') ? 
-          message.split('name:')[1].trim() : 
-          message.trim();
-        
-        // Save name
-        conversation.userInfo = { ...userInfo, name };
-        await conversation.save();
-        
-        // Ask for phone number with personalized message
-        return `Thanks, ${name}! 😊 We're excited to arrange your visit to ${propertyName}. \n\nPlease provide your phone number so our agent can contact you to confirm the details.`;
-      } else {
-        // Ask for name with personalized message
-        return `Great choice! To schedule your visit to view this exclusive property in ${property ? property.location : 'our portfolio'}, I'll need a few details.\n\nPlease provide your full name.`;
+      // Ask for phone number
+      if (conversation.language === 'marathi') {
+        return 'धन्यवाद! कृपया आपला संपर्क क्रमांक प्रदान करा.';
       }
+      return 'Thank you! Please provide your contact number.';
     }
     
     // If we have name but no phone
     if (!userInfo.phone) {
-      // Check if this looks like a phone number
-      if (message.match(/^[0-9+\s-]{10,15}$/) || message.toLowerCase().includes('phone:')) {
-        // Extract phone
-        const phone = message.includes('phone:') ? 
-          message.split('phone:')[1].trim() : 
-          message.trim().replace(/[\s-]/g, '');
-        
-        // Save phone
-        conversation.userInfo = { ...userInfo, phone };
-        await conversation.save();
-        
-        // Ask for preferred time with personalized options
-        const property = await Property.findById(conversation.selectedProperty);
-        const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const dayAfter = new Date(now);
-        dayAfter.setDate(dayAfter.getDate() + 2);
-        
-        // Format dates for display
-        const tomorrowDate = tomorrow.toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' });
-        const dayAfterDate = dayAfter.toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' });
-        
-        return `Perfect, ${userInfo.name}! 📱\n\n` +
-               `When would you like to visit ${property ? property.title : 'the property'}? Please select your preferred time:\n\n` +
-               `1. ${tomorrowDate} - Morning (10:00 AM)\n` +
-               `2. ${tomorrowDate} - Afternoon (2:00 PM)\n` +
-               `3. ${tomorrowDate} - Evening (5:00 PM)\n` +
-               `4. ${dayAfterDate} - Morning (10:00 AM)\n` +
-               `5. ${dayAfterDate} - Afternoon (2:00 PM)\n\n` +
-               `Reply with the number of your preferred time slot (1-5).`;
-      } else {
-        // Ask for phone again with more helpful message
-        return `I need a valid phone number to schedule your visit. Please provide a 10-15 digit phone number (e.g., 9876543210 or +91 98765 43210).`;
+      // Check if message contains a phone number
+      const phoneMatch = message.match(/\d{10}/);
+      let phoneNumber = null;
+      
+      // Check for Marathi format with prefix
+      if (message.includes('फोन:')) {
+        const parts = message.split('फोन:');
+        if (parts.length > 1) {
+          const potentialPhone = parts[1].trim().match(/\d{10}/);
+          if (potentialPhone) {
+            phoneNumber = potentialPhone[0];
+          }
+        }
+      } else if (phoneMatch) {
+        phoneNumber = phoneMatch[0];
       }
+      
+      if (!phoneNumber) {
+        // Invalid phone number
+        if (conversation.language === 'marathi') {
+          return 'कृपया वैध 10-अंकी फोन नंबर प्रदान करा.';
+        }
+        return 'Please provide a valid 10-digit phone number.';
+      }
+      
+      // Save phone number
+      conversation.userInfo = { ...userInfo, phone: phoneNumber };
+      await conversation.save();
+      
+      // Ask for preferred time
+      if (conversation.language === 'marathi') {
+        return 'धन्यवाद! कृपया आपली पसंतीची भेटीची तारीख आणि वेळ प्रदान करा (उदा. "उद्या दुपारी 2 वाजता" किंवा "शनिवार सकाळी 11 वाजता").';
+      }
+      return 'Thank you! Please provide your preferred date and time for the visit (e.g., "Tomorrow at 2 PM" or "Saturday at 11 AM").';
     }
     
-    // If we have name and phone but no time
+    // If we have name and phone but no preferred time
     if (!userInfo.preferredTime) {
-      // Check if this is a valid time selection
-      if (message.match(/^[1-5]$/)) {
-        // Process time selection
-        const timeChoice = parseInt(message.trim());
-        const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const dayAfter = new Date(now);
-        dayAfter.setDate(dayAfter.getDate() + 2);
+      // Extract date and time from user message
+      const Helpers = require('../utils/helpers');
+      const extractedDate = Helpers.extractDate(message);
+      const extractedTime = Helpers.extractTime(message);
+      
+      // If user didn't provide date or time, ask again
+      if (!extractedDate || !extractedTime) {
+        if (conversation.language === 'marathi') {
+          return 'कृपया भेटीसाठी तारीख आणि वेळ स्पष्टपणे नमूद करा (उदा. "उद्या दुपारी 2 वाजता" किंवा "शनिवार सकाळी 11 वाजता").';
+        }
+        return 'Please specify a clear date and time for your visit (e.g., "Tomorrow at 2 PM" or "Saturday at 11 AM").';
+      }
+      
+      // Parse the date and time (simplified version - in a real app, use a date parsing library)
+      let preferredDate = new Date();
+      
+      // Handle common date patterns
+      if (extractedDate.toLowerCase().includes('tomorrow')) {
+        preferredDate.setDate(preferredDate.getDate() + 1);
+      } else if (extractedDate.toLowerCase().includes('next week')) {
+        preferredDate.setDate(preferredDate.getDate() + 7);
+      } else if (extractedDate.toLowerCase().match(/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i)) {
+        // Simple weekday handling - in a real app, use a more robust solution
+        const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const today = preferredDate.getDay();
+        const targetDay = weekdays.indexOf(extractedDate.toLowerCase().match(/(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i)[0]);
+        let daysToAdd = targetDay - today;
+        if (daysToAdd <= 0) daysToAdd += 7; // Next week if day has passed
+        preferredDate.setDate(preferredDate.getDate() + daysToAdd);
+      }
+      
+      // Handle time patterns
+      if (extractedTime) {
+        const hourMatch = extractedTime.match(/(\d{1,2})/);
+        let hour = parseInt(hourMatch[0]);
         
-        let preferredTime;
-        switch(timeChoice) {
-          case 1: // Tomorrow morning
-            preferredTime = new Date(tomorrow.setHours(10, 0, 0, 0));
-            break;
-          case 2: // Tomorrow afternoon
-            preferredTime = new Date(tomorrow.setHours(14, 0, 0, 0));
-            break;
-          case 3: // Tomorrow evening
-            preferredTime = new Date(tomorrow.setHours(17, 0, 0, 0));
-            break;
-          case 4: // Day after morning
-            preferredTime = new Date(dayAfter.setHours(10, 0, 0, 0));
-            break;
-          case 5: // Day after afternoon
-            preferredTime = new Date(dayAfter.setHours(14, 0, 0, 0));
-            break;
-          default:
-            return `Please select a valid time option (1-5).`;
+        // Handle AM/PM
+        if (extractedTime.toLowerCase().includes('pm') && hour < 12) {
+          hour += 12;
+        } else if (extractedTime.toLowerCase().includes('am') && hour === 12) {
+          hour = 0;
         }
         
-        // Save time
-        conversation.userInfo = { ...userInfo, preferredTime };
+        // Set the hour
+        preferredDate.setHours(hour);
         
-        // Ask for any special requirements
-        return `Great choice! 📅\n\n` +
-               `Do you have any special requirements or questions for your visit? For example:\n\n` +
-               `1. No special requirements\n` +
-               `2. Need information about financing options\n` +
-               `3. Interested in nearby amenities\n` +
-               `4. Want to discuss renovation possibilities\n` +
-               `5. Other (please specify)\n\n` +
-               `Reply with the number of your choice (1-5).`;
-      } else {
-        // Ask for time selection again
-        const property = await Property.findById(conversation.selectedProperty);
-        const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const dayAfter = new Date(now);
-        dayAfter.setDate(dayAfter.getDate() + 2);
-        
-        // Format dates for display
-        const tomorrowDate = tomorrow.toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' });
-        const dayAfterDate = dayAfter.toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' });
-        
-        return `Please select a valid time option by replying with a number from 1 to 5:\n\n` +
-               `1. ${tomorrowDate} - Morning (10:00 AM)\n` +
-               `2. ${tomorrowDate} - Afternoon (2:00 PM)\n` +
-               `3. ${tomorrowDate} - Evening (5:00 PM)\n` +
-               `4. ${dayAfterDate} - Morning (10:00 AM)\n` +
-               `5. ${dayAfterDate} - Afternoon (2:00 PM)`;
+        // Handle minutes if present
+        const minuteMatch = extractedTime.match(/:([0-5][0-9])/);
+        if (minuteMatch) {
+          preferredDate.setMinutes(parseInt(minuteMatch[1]));
+        } else {
+          preferredDate.setMinutes(0);
+        }
       }
+      
+      // Format the time for display
+      const options = { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+      const formattedTime = preferredDate.toLocaleDateString(
+        conversation.language === 'marathi' ? 'mr-IN' : 'en-US', 
+        options
+      );
+      
+      // Save preferred time
+      conversation.userInfo = { ...userInfo, preferredTime: preferredDate };
+      await conversation.save();
+      
+      // Ask for special requirements
+      if (conversation.language === 'marathi') {
+        return `छान! 📅 आपली भेट ${formattedTime} साठी निश्चित केली गेली आहे.\n\n` +
+               `आपल्या भेटीसाठी आपल्याकडे काही विशेष आवश्यकता किंवा प्रश्न आहेत का? उदाहरणार्थ:\n\n` +
+               `1. कोणत्याही विशेष आवश्यकता नाहीत\n` +
+               `2. वित्तपुरवठा पर्यायांबद्दल माहिती हवी आहे\n` +
+               `3. जवळपासच्या सुविधांमध्ये स्वारस्य आहे\n` +
+               `4. नूतनीकरण शक्यतांबद्दल चर्चा करू इच्छिता\n` +
+               `5. इतर (कृपया निर्दिष्ट करा)\n\n` +
+               `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-5).`;
+      }
+      
+      return `Great! 📅 Your visit has been scheduled for ${formattedTime}.\n\n` +
+             `Do you have any special requirements or questions for your visit? For example:\n\n` +
+             `1. No special requirements\n` +
+             `2. Need information about financing options\n` +
+             `3. Interested in nearby amenities\n` +
+             `4. Want to discuss renovation possibilities\n` +
+             `5. Other (please specify)\n\n` +
+             `Reply with the number of your choice (1-5).`;
     }
     
     // If we have name, phone, time but no special requirements
@@ -511,24 +668,48 @@ class ConversationService {
         const requirementChoice = parseInt(message.trim());
         let specialRequirements = '';
         
-        switch(requirementChoice) {
-          case 1:
-            specialRequirements = 'No special requirements';
-            break;
-          case 2:
-            specialRequirements = 'Needs information about financing options';
-            break;
-          case 3:
-            specialRequirements = 'Interested in nearby amenities';
-            break;
-          case 4:
-            specialRequirements = 'Wants to discuss renovation possibilities';
-            break;
-          case 5:
-            // For 'Other', we'll ask them to specify
-            return `Please briefly describe your specific requirements or questions:`;
-          default:
-            return `Please select a valid option (1-5).`;
+        if (conversation.language === 'marathi') {
+          switch(requirementChoice) {
+            case 1:
+              specialRequirements = 'कोणत्याही विशेष आवश्यकता नाहीत';
+              break;
+            case 2:
+              specialRequirements = 'वित्तपुरवठा पर्यायांबद्दल माहिती हवी आहे';
+              break;
+            case 3:
+              specialRequirements = 'जवळपासच्या सुविधांमध्ये स्वारस्य आहे';
+              break;
+            case 4:
+              specialRequirements = 'नूतनीकरण शक्यतांबद्दल चर्चा करू इच्छिता';
+              break;
+            case 5:
+              // For 'Other', we'll ask for specifics
+              conversation.userInfo = { ...userInfo, awaitingSpecialRequirements: true };
+              await conversation.save();
+              return 'कृपया आपल्या विशेष आवश्यकता किंवा प्रश्न तपशीलवार सांगा.';
+          }
+        } else {
+          switch(requirementChoice) {
+            case 1:
+              specialRequirements = 'No special requirements';
+              break;
+            case 2:
+              specialRequirements = 'Needs information about financing options';
+              break;
+            case 3:
+              specialRequirements = 'Interested in nearby amenities';
+              break;
+            case 4:
+              specialRequirements = 'Wants to discuss renovation possibilities';
+              break;
+            case 5:
+              // For 'Other', we'll ask them to specify
+              conversation.userInfo = { ...userInfo, awaitingSpecialRequirements: true };
+              await conversation.save();
+              return `Please briefly describe your specific requirements or questions:`;
+            default:
+              return `Please select a valid option (1-5).`;
+          }
         }
         
         // Save special requirements and complete the process
@@ -540,7 +721,7 @@ class ConversationService {
         await this.createAppointment(conversation);
         
         // Generate confirmation with enhanced details
-        return this.generateEnhancedConfirmation(conversation);
+        return this.generateEnhancedConfirmation(conversation, conversation.language);
       } else if (message.length > 0) {
         // User provided custom requirements (after selecting option 5)
         conversation.userInfo = { ...userInfo, specialRequirements: message.trim() };
@@ -551,20 +732,27 @@ class ConversationService {
         await this.createAppointment(conversation);
         
         // Generate confirmation with enhanced details
-        return this.generateEnhancedConfirmation(conversation);
+        return this.generateEnhancedConfirmation(conversation, conversation.language);
       } else {
         // Invalid input for special requirements
+        if (conversation.language === 'marathi') {
+          return `कृपया एक पर्याय (1-5) निवडा किंवा आपल्या विशिष्ट आवश्यकता प्रदान करा:`;
+        }
         return `Please select an option (1-5) or provide your specific requirements:`;
       }
     }
     
     // This should not happen, but just in case
+    if (conversation.language === 'marathi') {
+      return `मला खात्री नाही की आपण कोणती माहिती देत आहात. आपल्या अपॉइंटमेंट तपशीलांसह पुन्हा सुरू करूया.\n\n` +
+             `कृपया आपले पूर्ण नाव प्रदान करा.`;
+    }
     return `I'm not sure what information you're providing. Let's start over with your appointment details.\n\n` +
            `Please provide your full name.`;
   }
   
   // Generate enhanced confirmation message
-  async generateEnhancedConfirmation(conversation) {
+  async generateEnhancedConfirmation(conversation, language = 'english') {
     try {
       // Get property details
       const property = await Property.findById(conversation.selectedProperty);
@@ -574,503 +762,220 @@ class ConversationService {
       
       // Format the date for display
       const options = { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-      const formattedTime = conversation.userInfo.preferredTime.toLocaleDateString('en-US', options);
+      const formattedTime = conversation.userInfo.preferredTime.toLocaleDateString(
+        language === 'marathi' ? 'mr-IN' : 'en-US', 
+        options
+      );
       
       // Get agent details
       const agent = property.agent;
       
       // Create a personalized confirmation message
-      let confirmationMessage = `✅ *Booking Confirmed with Malpure Group!*\n\n`;
+      let confirmationMessage = '';
       
-      // Add personalized greeting
-      confirmationMessage += `Dear ${conversation.userInfo.name},\n\n`;
-      
-      // Add appointment details
-      confirmationMessage += `Your visit to see *${property.title}* has been scheduled for *${formattedTime}*.\n\n`;
-      
-      // Add property details
-      confirmationMessage += `*Property Details:*\n`;
-      confirmationMessage += `📍 ${property.location}\n`;
-      confirmationMessage += `💰 ₹${property.price.toLocaleString('en-IN')}\n`;
-      confirmationMessage += `🏢 ${property.type.charAt(0).toUpperCase() + property.type.slice(1)}\n`;
-      confirmationMessage += `🛏️ ${property.bedrooms} Bedroom${property.bedrooms > 1 ? 's' : ''}\n`;
-      confirmationMessage += `🚿 ${property.bathrooms} Bathroom${property.bathrooms > 1 ? 's' : ''}\n`;
-      confirmationMessage += `📐 ${property.area.value} ${property.area.unit}\n\n`;
-      
-      // Add agent details
-      confirmationMessage += `*Your Dedicated Agent:*\n`;
-      confirmationMessage += `👤 ${agent.name}\n`;
-      confirmationMessage += `📱 ${agent.phone}\n\n`;
-      
-      // Add special requirements if any
-      if (conversation.userInfo.specialRequirements && 
-          conversation.userInfo.specialRequirements !== 'No special requirements') {
-        confirmationMessage += `*Special Requirements:*\n`;
-        confirmationMessage += `✏️ ${conversation.userInfo.specialRequirements}\n\n`;
+      if (language === 'marathi') {
+        // Marathi confirmation message
+        confirmationMessage = `✅ *मालपुरे ग्रुपसह बुकिंग कन्फर्म झाले!*\n\n`;
+        
+        // Add personalized greeting
+        confirmationMessage += `प्रिय ${conversation.userInfo.name},\n\n`;
+        
+        // Add appointment details
+        confirmationMessage += `*${property.title}* पाहण्यासाठी आपली भेट *${formattedTime}* साठी निश्चित केली गेली आहे.\n\n`;
+        
+        // Add property details
+        confirmationMessage += `*मालमत्ता तपशील:*\n`;
+        confirmationMessage += `📍 ${property.location}\n`;
+        confirmationMessage += `💰 ₹${property.price.toLocaleString('en-IN')}\n`;
+        
+        // Translate property type to Marathi
+        let propertyType = '';
+        switch(property.type.toLowerCase()) {
+          case 'apartment':
+            propertyType = 'अपार्टमेंट';
+            break;
+          case 'villa':
+            propertyType = 'विला';
+            break;
+          case 'house':
+            propertyType = 'घर';
+            break;
+          case 'plot':
+            propertyType = 'प्लॉट';
+            break;
+          default:
+            propertyType = property.type;
+        }
+        
+        confirmationMessage += `🏢 ${propertyType}\n`;
+        confirmationMessage += `🛏️ ${property.bedrooms} बेडरूम\n`;
+        confirmationMessage += `🚿 ${property.bathrooms} बाथरूम\n`;
+        confirmationMessage += `📐 ${property.area.value} ${property.area.unit}\n\n`;
+        
+        // Add agent details
+        confirmationMessage += `*आपला समर्पित एजंट:*\n`;
+        confirmationMessage += `👤 ${agent.name}\n`;
+        confirmationMessage += `📱 ${agent.phone}\n\n`;
+        
+        // Add special requirements if any
+        if (conversation.userInfo.specialRequirements && 
+            conversation.userInfo.specialRequirements !== 'कोणत्याही विशेष आवश्यकता नाहीत') {
+          confirmationMessage += `*विशेष आवश्यकता:*\n`;
+          confirmationMessage += `✏️ ${conversation.userInfo.specialRequirements}\n\n`;
+        }
+        
+        // Add next steps
+        confirmationMessage += `आमचा एजंट तपशील पुष्टी करण्यासाठी लवकरच ${conversation.userInfo.phone} वर संपर्क साधेल.\n\n`;
+        
+        // Add what's next options
+        confirmationMessage += `*आपण पुढे काय करू इच्छिता?*\n\n`;
+        confirmationMessage += `1. नवीन मालमत्ता शोध सुरू करा\n`;
+        confirmationMessage += `2. अपॉइंटमेंट तपशील पहा\n`;
+        confirmationMessage += `3. संभाषण संपवा\n\n`;
+        confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-3).`;
+      } else {
+        // English confirmation message
+        confirmationMessage = `✅ *Booking Confirmed with Malpure Group!*\n\n`;
+        
+        // Add personalized greeting
+        confirmationMessage += `Dear ${conversation.userInfo.name},\n\n`;
+        
+        // Add appointment details
+        confirmationMessage += `Your visit to see *${property.title}* has been scheduled for *${formattedTime}*.\n\n`;
+        
+        // Add property details
+        confirmationMessage += `*Property Details:*\n`;
+        confirmationMessage += `📍 ${property.location}\n`;
+        confirmationMessage += `💰 ₹${property.price.toLocaleString('en-IN')}\n`;
+        confirmationMessage += `🏢 ${property.type.charAt(0).toUpperCase() + property.type.slice(1)}\n`;
+        confirmationMessage += `🛏️ ${property.bedrooms} Bedroom${property.bedrooms > 1 ? 's' : ''}\n`;
+        confirmationMessage += `🚿 ${property.bathrooms} Bathroom${property.bathrooms > 1 ? 's' : ''}\n`;
+        confirmationMessage += `📐 ${property.area.value} ${property.area.unit}\n\n`;
+        
+        // Add agent details
+        confirmationMessage += `*Your Dedicated Agent:*\n`;
+        confirmationMessage += `👤 ${agent.name}\n`;
+        confirmationMessage += `📱 ${agent.phone}\n\n`;
+        
+        // Add special requirements if any
+        if (conversation.userInfo.specialRequirements && 
+            conversation.userInfo.specialRequirements !== 'No special requirements') {
+          confirmationMessage += `*Special Requirements:*\n`;
+          confirmationMessage += `✏️ ${conversation.userInfo.specialRequirements}\n\n`;
+        }
+        
+        // Add next steps
+        confirmationMessage += `Our agent will contact you at ${conversation.userInfo.phone} shortly to confirm the details.\n\n`;
+        
+        // Add what's next options
+        confirmationMessage += `*What would you like to do next?*\n\n`;
+        confirmationMessage += `1. Start a new property search\n`;
+        confirmationMessage += `2. View appointment details\n`;
+        confirmationMessage += `3. End conversation\n\n`;
+        confirmationMessage += `Reply with the number of your choice (1-3).`;
       }
-      
-      // Add next steps
-      confirmationMessage += `Our agent will contact you at ${conversation.userInfo.phone} shortly to confirm the details.\n\n`;
-      
-      // Add what's next options
-      confirmationMessage += `*What would you like to do next?*\n\n`;
-      confirmationMessage += `1. Start a new property search\n`;
-      confirmationMessage += `2. View appointment details\n`;
-      confirmationMessage += `3. End conversation\n\n`;
-      confirmationMessage += `Reply with the number of your choice (1-3).`;
       
       return confirmationMessage;
     } catch (error) {
-      console.error('Error generating enhanced confirmation:', error);
-      
-      // Fallback to basic confirmation if there's an error
-      return `✅ *Booking Confirmed!*\n\n` +
-             `Thank you, ${conversation.userInfo.name}! Your property visit has been scheduled for ${conversation.userInfo.preferredTime}.\n\n` +
-             `Our agent will contact you at ${conversation.userInfo.phone} shortly to confirm the details.\n\n` +
-             `What would you like to do next?\n\n` +
-             `1. Start a new property search\n` +
-             `2. View appointment details\n` +
-             `3. End conversation\n\n` +
-             `Reply with the number of your choice (1-3).`;
+      console.error('Error generating confirmation:', error);
+      if (language === 'marathi') {
+        return 'माफ करा, पुष्टीकरण संदेश तयार करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.';
+      }
+      return 'Sorry, there was an error generating the confirmation message. Please try again.';
     }
   }
 
   async createAppointment(conversation) {
     try {
-      // Get property details
-      const property = await Property.findById(conversation.selectedProperty);
-      if (!property) {
-        throw new Error('Property not found');
-      }
-      
-      // Get agent details from property
-      const assignedAgent = property.agent;
-      
-      // Format date for notes
-      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-      const formattedDate = conversation.userInfo.preferredTime.toLocaleDateString('en-US', options);
-      
-      // Create detailed notes with user preferences
-      let detailedNotes = `Appointment scheduled via Malpure Group WhatsApp bot\n`;
-      detailedNotes += `Property: ${property.title} (${property.type}, ${property.bedrooms}BHK)\n`;
-      detailedNotes += `Location: ${property.location}\n`;
-      detailedNotes += `Price: ₹${property.price.toLocaleString('en-IN')}\n`;
-      
-      // Add user preferences if available
-      if (conversation.preferences) {
-        if (conversation.preferences.budget) {
-          detailedNotes += `User budget range: ₹${conversation.preferences.budget.min}-${conversation.preferences.budget.max}\n`;
-        }
-        if (conversation.preferences.location) {
-          detailedNotes += `User preferred location: ${conversation.preferences.location}\n`;
-        }
-        if (conversation.preferences.bhk) {
-          detailedNotes += `User preferred BHK: ${conversation.preferences.bhk}\n`;
-        }
-      }
-      
-      // Add any special requirements if mentioned
-      if (conversation.userInfo.specialRequirements) {
-        detailedNotes += `Special requirements: ${conversation.userInfo.specialRequirements}\n`;
-      }
-      
-      // Create appointment with enhanced data
-      const appointmentData = {
-        propertyId: conversation.selectedProperty,
+      // Create appointment using appointment service
+      await this.appointmentService.createAppointment({
         userId: conversation.userId,
-        dateTime: conversation.userInfo.preferredTime,
-        userPhone: conversation.userInfo.phone,
-        userName: conversation.userInfo.name,
-        notes: detailedNotes,
-        // Add additional fields for better tracking
-        source: 'whatsapp_bot',
-        assignedAgentName: assignedAgent.name,
-        assignedAgentPhone: assignedAgent.phone,
-        propertyTitle: property.title,
-        propertyLocation: property.location,
-        propertyPrice: property.price,
-        propertyType: property.type,
-        propertyBedrooms: property.bedrooms
-      };
-      
-      // Create the appointment
-      const appointmentId = await this.appointmentService.createAppointment(appointmentData);
-      console.log(`Created appointment with ID: ${appointmentId}`);
-      
-      // Store appointment ID in conversation for future reference
-      conversation.appointmentId = appointmentId;
-      await conversation.save();
-      
-      // In a production implementation, notify the sales team
-      this.notifySalesTeam(appointmentData, appointmentId, property);
-      
-      // Schedule appointment reminder (24 hours before)
-      this.scheduleAppointmentReminder(conversation, property, appointmentId);
-      
-      return appointmentId;
-    } catch (error) {
-      console.error('Error creating appointment:', error);
-      throw error;
-    }
-  }
-  
-  // Method to notify sales team about new appointment
-  notifySalesTeam(appointmentData, appointmentId, property) {
-    try {
-      // Log the notification (in production, this would send an email, SMS, or update a CRM)
-      console.log(`[MALPURE GROUP SALES NOTIFICATION] New appointment created:`);
-      console.log(`- Appointment ID: ${appointmentId}`);
-      console.log(`- Property: ${property.title} (${property._id})`);
-      console.log(`- Client: ${appointmentData.userName} (${appointmentData.userPhone})`);
-      console.log(`- Date/Time: ${appointmentData.dateTime}`);
-      console.log(`- Assigned Agent: ${appointmentData.assignedAgentName} (${appointmentData.assignedAgentPhone})`);
-      
-      // Add special requirements if any
-      if (appointmentData.notes && appointmentData.notes.includes('Special requirements')) {
-        console.log(`- Special Requirements: ${appointmentData.notes.split('Special requirements:')[1].split('\n')[0].trim()}`);
-      }
-      
-      // Add priority flag for high-value properties
-      if (property.price > 10000000) { // 1 crore+
-        console.log(`- [HIGH PRIORITY] Premium property (₹${property.price.toLocaleString('en-IN')})`);
-      }
-      
-      // In production, implement actual notification logic here
-      // Example: send email to sales team, update CRM, send SMS to agent, etc.
-      
-      // Simulate sending personalized WhatsApp notification to agent
-      this.simulateAgentNotification(appointmentData, property);
-      
-      // Schedule follow-up task for sales team
-      this.scheduleFollowUpTask(appointmentData, property, appointmentId);
-    } catch (error) {
-      console.error('Error notifying sales team:', error);
-      // Don't throw error here to prevent blocking the main flow
-    }
-  }
-  
-  // Simulate sending a personalized WhatsApp notification to the agent
-  simulateAgentNotification(appointmentData, property) {
-    const agentMessage = `🔔 *New Malpure Group Appointment*\n\n` +
-                         `Dear ${appointmentData.assignedAgentName},\n\n` +
-                         `You have a new property viewing appointment:\n\n` +
-                         `👤 Client: ${appointmentData.userName}\n` +
-                         `📱 Phone: ${appointmentData.userPhone}\n` +
-                         `🏠 Property: ${property.title}\n` +
-                         `📍 Location: ${property.location}\n` +
-                         `📅 Date/Time: ${appointmentData.dateTime.toLocaleString()}\n\n` +
-                         `Please contact the client within the next 2 hours to confirm the appointment details.\n\n` +
-                         `Thank you,\n` +
-                         `Malpure Group Management`;
-    
-    console.log(`[AGENT NOTIFICATION] Would send to ${appointmentData.assignedAgentPhone}:\n${agentMessage}`);
-  }
-  
-  // Schedule a follow-up task for the sales team
-  scheduleFollowUpTask(appointmentData, property, appointmentId) {
-    // Calculate follow-up time (2 hours after appointment creation)
-    const followUpTime = new Date();
-    followUpTime.setHours(followUpTime.getHours() + 2);
-    
-    const followUpTask = {
-      type: 'appointment_confirmation_check',
-      appointmentId: appointmentId,
-      clientName: appointmentData.userName,
-      clientPhone: appointmentData.userPhone,
-      propertyId: property._id,
-      propertyTitle: property.title,
-      agentName: appointmentData.assignedAgentName,
-      agentPhone: appointmentData.assignedAgentPhone,
-      scheduledTime: followUpTime,
-      status: 'pending',
-      description: `Check if agent has contacted client to confirm appointment details`
-    };
-    
-    console.log(`[FOLLOW-UP TASK] Scheduled for ${followUpTime.toLocaleString()}:\n`, followUpTask);
-    
-    // In production, this would be stored in a database and processed by a task scheduler
-  }
-  
-  // Method to schedule appointment reminders
-  scheduleAppointmentReminder(conversation, property, appointmentId) {
-    try {
-      const appointmentTime = new Date(conversation.userInfo.preferredTime);
-      const currentTime = new Date();
-      
-      // Define reminder schedule (hours before appointment)
-      const reminderSchedule = [
-        { hours: 24, type: 'day_before' },
-        { hours: 3, type: 'few_hours_before' },
-        { hours: 1, type: 'one_hour_before' }
-      ];
-      
-      // Schedule each reminder if it's in the future
-      reminderSchedule.forEach(reminder => {
-        const reminderTime = new Date(appointmentTime);
-        reminderTime.setHours(reminderTime.getHours() - reminder.hours);
-        
-        if (reminderTime > currentTime) {
-          const timeUntilReminder = reminderTime.getTime() - currentTime.getTime();
-          const hoursUntil = Math.round(timeUntilReminder/3600000);
-          
-          console.log(`[MALPURE GROUP] Scheduling ${reminder.type} reminder for ${reminderTime.toLocaleString()} (in ${hoursUntil} hours)`);
-          
-          // Create the reminder with personalized message
-          this.createPersonalizedReminder(conversation, property, appointmentId, reminder.type, reminderTime);
-        }
+        propertyId: conversation.selectedProperty,
+        name: conversation.userInfo.name,
+        phone: conversation.userInfo.phone,
+        preferredTime: conversation.userInfo.preferredTime,
+        specialRequirements: conversation.userInfo.specialRequirements || 'None',
+        status: 'scheduled'
       });
       
-      // Also schedule a post-appointment follow-up
-      const followUpTime = new Date(appointmentTime);
-      followUpTime.setHours(followUpTime.getHours() + 3); // 3 hours after appointment
-      
-      if (followUpTime > currentTime) {
-        console.log(`[MALPURE GROUP] Scheduling post-visit feedback request for ${followUpTime.toLocaleString()}`);
-        this.createPersonalizedReminder(conversation, property, appointmentId, 'post_visit', followUpTime);
-      }
+      return true;
     } catch (error) {
-      console.error('Error scheduling reminders:', error);
-      // Don't throw error here to prevent blocking the main flow
+      console.error('Error creating appointment:', error);
+      return false;
     }
-  }
-  
-  // Create personalized reminder message based on reminder type
-  createPersonalizedReminder(conversation, property, appointmentId, reminderType, scheduledTime) {
-    const userName = conversation.userInfo.name;
-    const userPhone = conversation.userInfo.phone;
-    const propertyTitle = property.title;
-    const propertyLocation = property.location;
-    const appointmentTime = conversation.userInfo.preferredTime.toLocaleString();
-    const agentName = property.agent.name;
-    
-    let reminderMessage = '';
-    
-    switch (reminderType) {
-      case 'day_before':
-        reminderMessage = `🔔 *Appointment Reminder from Malpure Group*\n\n` +
-                         `Hello ${userName},\n\n` +
-                         `This is a friendly reminder that you have an appointment tomorrow to visit ${propertyTitle} at ${appointmentTime}.\n\n` +
-                         `📍 Location: ${propertyLocation}\n` +
-                         `👤 Your agent: ${agentName}\n\n` +
-                         `Please remember to bring your ID proof. If you need to reschedule, please reply to this message.\n\n` +
-                         `We look forward to showing you this property!\n\n` +
-                         `Warm regards,\n` +
-                         `Malpure Group`;
-        break;
-      
-      case 'few_hours_before':
-        reminderMessage = `🔔 *Your Property Visit Today - Malpure Group*\n\n` +
-                         `Hello ${userName},\n\n` +
-                         `Your appointment to visit ${propertyTitle} is scheduled for today at ${appointmentTime} (in about 3 hours).\n\n` +
-                         `Your agent ${agentName} is preparing to meet you at the property. Please let us know if you're on your way or if you need directions.\n\n` +
-                         `We're excited to show you this property!\n\n` +
-                         `Malpure Group`;
-        break;
-      
-      case 'one_hour_before':
-        reminderMessage = `🔔 *Your Property Visit - 1 Hour Reminder*\n\n` +
-                         `Hello ${userName},\n\n` +
-                         `Your appointment at ${propertyTitle} is coming up in 1 hour.\n\n` +
-                         `Your agent ${agentName} is ready to meet you at the property. If you're running late or need assistance finding the location, please let us know.\n\n` +
-                         `See you soon!\n\n` +
-                         `Malpure Group`;
-        break;
-      
-      case 'post_visit':
-        reminderMessage = `👋 *How was your property visit?*\n\n` +
-                         `Hello ${userName},\n\n` +
-                         `Thank you for visiting ${propertyTitle} with Malpure Group today.\n\n` +
-                         `We'd love to hear your thoughts about the property and your experience with us.\n\n` +
-                         `Did the property meet your expectations? Would you like to see more similar properties?\n\n` +
-                         `Your feedback helps us serve you better.\n\n` +
-                         `Warm regards,\n` +
-                         `Malpure Group`;
-        break;
-    }
-    
-    // Create reminder object (in production, this would be stored in a database)
-    const reminder = {
-      type: reminderType,
-      appointmentId: appointmentId,
-      userPhone: userPhone,
-      userName: userName,
-      propertyId: property._id,
-      propertyTitle: propertyTitle,
-      scheduledTime: scheduledTime,
-      message: reminderMessage,
-      status: 'scheduled'
-    };
-    
-    console.log(`[REMINDER CREATED] ${reminderType} for ${scheduledTime.toLocaleString()}`);
-    
-    // In production, this would be stored in a database and processed by a task scheduler
-    return reminder;
   }
 
   async handleCompletedState(conversation, message) {
-    // Check if this is the first message or an invalid selection
-    if (!message.match(/^[1-5]$/)) {
-      // Get property details
-      const property = await Property.findById(conversation.selectedProperty);
-      const propertyName = property ? property.title : 'the property';
-      
-      // Format the date for display
-      const options = { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-      const formattedTime = conversation.userInfo.preferredTime.toLocaleDateString('en-US', options);
-      
-      // Show enhanced options menu
-      return `Your appointment to visit ${propertyName} has been confirmed for ${formattedTime}.\n\n` +
-             `What would you like to do next?\n\n` +
-             `1. Start a new property search\n` +
-             `2. View appointment details\n` +
-             `3. View similar properties\n` +
-             `4. Request property documents\n` +
-             `5. End conversation\n\n` +
-             `Reply with the number of your choice (1-5).`;
-    }
-    
-    // Process user selection
-    const userChoice = parseInt(message.trim());
-    
-    if (userChoice === 1) {
-      // User wants to restart
+    // Check user's choice for next steps
+    if (message === '1') {
+      // User wants to start a new property search
       conversation.state = 'welcome';
       conversation.preferences = {};
       conversation.matchedProperties = [];
-      // Keep the appointment ID for reference
-      const appointmentId = conversation.appointmentId;
       conversation.selectedProperty = null;
       conversation.userInfo = {};
-      // Store previous appointment ID for reference
-      conversation.previousAppointments = conversation.previousAppointments || [];
-      if (appointmentId) {
-        conversation.previousAppointments.push(appointmentId);
-      }
       await conversation.save();
       
-      return this.handleWelcomeState(conversation, message);
-    } else if (userChoice === 2) {
+      // Return welcome message
+      return this.getWelcomeMessage(conversation.language);
+    } else if (message === '2') {
       // User wants to view appointment details
       const property = await Property.findById(conversation.selectedProperty);
       if (!property) {
-        return `Sorry, I couldn't find the property details. Let's start a new search.\n\n` +
-               `1. Start a new property search\n` +
-               `5. End conversation\n\n` +
-               `Reply with the number of your choice.`;
+        if (conversation.language === 'marathi') {
+          return 'माफ करा, अपॉइंटमेंट तपशील आढळले नाहीत. नवीन शोध सुरू करण्यासाठी 1 टाइप करा.';
+        }
+        return 'Sorry, appointment details not found. Type 1 to start a new search.';
       }
       
       // Format the date for display
       const options = { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-      const formattedTime = conversation.userInfo.preferredTime.toLocaleDateString('en-US', options);
+      const formattedTime = conversation.userInfo.preferredTime.toLocaleDateString(
+        conversation.language === 'marathi' ? 'mr-IN' : 'en-US', 
+        options
+      );
       
-      // Get agent details
-      const agent = property.agent;
-      
-      // Create detailed appointment view
-      let detailsMessage = `📋 *Your Appointment with Malpure Group*\n\n`;
-      
-      // Add appointment details
-      detailsMessage += `🏠 *Property:* ${property.title}\n`;
-      detailsMessage += `📍 *Location:* ${property.location}\n`;
-      detailsMessage += `💰 *Price:* ₹${property.price.toLocaleString('en-IN')}\n`;
-      detailsMessage += `📅 *Date/Time:* ${formattedTime}\n\n`;
-      
-      // Add visitor details
-      detailsMessage += `👤 *Visitor Details:*\n`;
-      detailsMessage += `Name: ${conversation.userInfo.name}\n`;
-      detailsMessage += `Phone: ${conversation.userInfo.phone}\n\n`;
-      
-      // Add agent details
-      detailsMessage += `🧑‍💼 *Your Dedicated Agent:*\n`;
-      detailsMessage += `Name: ${agent.name}\n`;
-      detailsMessage += `Phone: ${agent.phone}\n`;
-      if (agent.email) {
-        detailsMessage += `Email: ${agent.email}\n`;
-      }
-      detailsMessage += `\n`;
-      
-      // Add special requirements if any
-      if (conversation.userInfo.specialRequirements && 
-          conversation.userInfo.specialRequirements !== 'No special requirements') {
-        detailsMessage += `✏️ *Special Requirements:*\n`;
-        detailsMessage += `${conversation.userInfo.specialRequirements}\n\n`;
+      if (conversation.language === 'marathi') {
+        return `📅 *अपॉइंटमेंट तपशील*\n\n` +
+               `मालमत्ता: ${property.title}\n` +
+               `स्थान: ${property.location}\n` +
+               `तारीख/वेळ: ${formattedTime}\n\n` +
+               `आम्ही आपल्याला पुढील दस्तऐवज पाठवू:\n` +
+               `- मालमत्ता ब्रोशर\n` +
+               `- फ्लोअर प्लॅन\n` +
+               `- स्थान फायदे\n` +
+               `- पेमेंट प्लॅन\n\n` +
+               `हे आपल्याला WhatsApp किंवा ईमेल द्वारे पाठवले जातील. आपल्याला कोणत्या विशिष्ट दस्तऐवजामध्ये सर्वाधिक स्वारस्य आहे?\n\n` +
+               `1. नवीन मालमत्ता शोध सुरू करा\n` +
+               `2. अपॉइंटमेंट तपशील पहा\n` +
+               `3. संभाषण संपवा\n\n` +
+               `आपल्या निवडीच्या क्रमांकासह उत्तर द्या.`;
       }
       
-      // Add what to bring
-      detailsMessage += `📝 *What to Bring:*\n`;
-      detailsMessage += `- ID proof (Aadhar/PAN/Passport)\n`;
-      detailsMessage += `- Phone with this WhatsApp number\n`;
-      
-      // Add options
-      detailsMessage += `\nWhat would you like to do next?\n\n`;
-      detailsMessage += `1. Start a new property search\n`;
-      detailsMessage += `3. View similar properties\n`;
-      detailsMessage += `4. Request property documents\n`;
-      detailsMessage += `5. End conversation\n\n`;
-      detailsMessage += `Reply with the number of your choice (1, 3-5).`;
-      
-      return detailsMessage;
-    } else if (userChoice === 3) {
-      // User wants to view similar properties
-      const property = await Property.findById(conversation.selectedProperty);
-      if (!property) {
-        return `Sorry, I couldn't find the property to show similar options. Let's start a new search.\n\n` +
-               `1. Start a new property search\n` +
-               `5. End conversation\n\n` +
-               `Reply with the number of your choice.`;
-      }
-      
-      // Find similar properties
-      const similarProperties = await Property.findSimilar(property);
-      
-      if (!similarProperties || similarProperties.length === 0) {
-        return `I couldn't find any similar properties at this time. Would you like to:\n\n` +
-               `1. Start a new property search\n` +
-               `2. View appointment details\n` +
-               `5. End conversation\n\n` +
-               `Reply with the number of your choice.`;
-      }
-      
-      // Format similar properties list
-      let similarPropertiesMessage = `🏠 *Similar Properties You Might Like*\n\n`;
-      
-      similarProperties.forEach((prop, index) => {
-        similarPropertiesMessage += prop.formatForList(index) + '\n\n';
-      });
-      
-      similarPropertiesMessage += `Would you like to schedule a visit to any of these properties as well?\n\n`;
-      similarPropertiesMessage += `1. Start a new property search\n`;
-      similarPropertiesMessage += `2. View appointment details\n`;
-      similarPropertiesMessage += `5. End conversation\n\n`;
-      similarPropertiesMessage += `Reply with the number of your choice.`;
-      
-      return similarPropertiesMessage;
-    } else if (userChoice === 4) {
-      // User wants to request property documents
-      const property = await Property.findById(conversation.selectedProperty);
-      if (!property) {
-        return `Sorry, I couldn't find the property to provide documents. Let's start a new search.\n\n` +
-               `1. Start a new property search\n` +
-               `5. End conversation\n\n` +
-               `Reply with the number of your choice.`;
-      }
-      
-      // Simulate document request
-      return `📄 *Document Request Confirmed*\n\n` +
-             `We've received your request for documents related to ${property.title}.\n\n` +
-             `Our team will send the following documents to you shortly:\n` +
+      return `📅 *Appointment Details*\n\n` +
+             `Property: ${property.title}\n` +
+             `Location: ${property.location}\n` +
+             `Date/Time: ${formattedTime}\n\n` +
+             `We'll be sending you the following documents:\n` +
              `- Property brochure\n` +
              `- Floor plans\n` +
-             `- Amenities list\n` +
              `- Location advantages\n` +
              `- Payment plans\n\n` +
              `These will be sent to you via WhatsApp or email. Is there a specific document you're most interested in?\n\n` +
              `1. Start a new property search\n` +
              `2. View appointment details\n` +
-             `5. End conversation\n\n` +
+             `3. End conversation\n\n` +
              `Reply with the number of your choice.`;
     } else {
       // User wants to end conversation
+      if (conversation.language === 'marathi') {
+        return `मालपुरे ग्रुप निवडल्याबद्दल धन्यवाद! 🙏\n\n` +
+               `आपली मालमत्ता पाहण्याची व्यवस्था केली गेली आहे, आणि आमचा एजंट लवकरच आपल्याशी संपर्क साधेल.\n\n` +
+               `आपल्याकडे आपल्या अपॉइंटमेंटबद्दल काही प्रश्न असल्यास किंवा भविष्यात अधिक मालमत्ता शोधू इच्छित असल्यास, आम्हाला पुन्हा संदेश द्या.\n\n` +
+               `आम्ही आपल्याला आपले स्वप्नातील घर शोधण्यास मदत करण्यास उत्सुक आहोत! 🏡✨\n\n` +
+               `आपला दिवस शुभ असो! 👋`;
+      }
+      
       return `Thank you for choosing Malpure Group for your property search! 🙏\n\n` +
              `Your property viewing has been scheduled, and our agent will contact you shortly.\n\n` +
              `If you have any questions about your appointment or would like to search for more properties in the future, just message us again.\n\n` +
