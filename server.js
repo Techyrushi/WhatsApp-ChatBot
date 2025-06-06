@@ -27,18 +27,48 @@ app.post('/webhook', async (req, res) => {
     const { body } = req;
     
     // Validate incoming request
-    if (!body || !body.Body || !body.From) {
+    if (!body || !body.From) {
       console.error('Invalid webhook request:', body);
       return res.status(400).send('Bad Request: Missing required fields');
     }
     
-    const message = body.Body;
     const sender = body.From;
+    let response;
     
-    console.log(`Received message from ${sender}: ${message}`);
+    // Check if this is a media message
+    if (body.NumMedia && parseInt(body.NumMedia) > 0) {
+      // Handle media message
+      const mediaType = body.MediaContentType0 ? body.MediaContentType0.split('/')[0] : 'unknown';
+      const mediaUrl = body.MediaUrl0;
+      const caption = body.Body || ''; // Caption or empty string
+      
+      console.log(`Received media message from ${sender}: ${mediaType} - ${mediaUrl}`);
+      
+      // Process media message
+      response = await conversationService.processMessage(sender, caption, mediaUrl, mediaType);
+    } else if (body.Latitude && body.Longitude) {
+      // Handle location message
+      const locationData = {
+        latitude: body.Latitude,
+        longitude: body.Longitude
+      };
+      
+      console.log(`Received location from ${sender}: ${locationData.latitude}, ${locationData.longitude}`);
+      
+      // Process location as a special type of media message
+      response = await conversationService.processMessage(sender, '', locationData, 'location');
+    } else if (body.Body) {
+      // Handle text message
+      const message = body.Body;
+      console.log(`Received text message from ${sender}: ${message}`);
+      
+      // Process text message
+      response = await conversationService.processMessage(sender, message);
+    } else {
+      console.error('Unrecognized message format:', body);
+      return res.status(400).send('Bad Request: Unrecognized message format');
+    }
     
-    // Process incoming message using conversation service
-    const response = await conversationService.processMessage(sender, message);
     console.log(`Generated response: ${response}`);
     
     // Send response back to WhatsApp

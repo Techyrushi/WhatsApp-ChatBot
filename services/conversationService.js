@@ -31,6 +31,7 @@ const conversationSchema = new mongoose.Schema({
     specialRequirements: { type: String },
     awaitingSpecialRequirements: { type: Boolean, default: false }
   },
+  appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
   lastMessageTimestamp: { type: Date, default: Date.now }
 }, { timestamps: true });
 
@@ -44,13 +45,21 @@ class ConversationService {
     this.appointmentService = new AppointmentService();
   }
 
-  async processMessage(sender, message) {
+  async processMessage(sender, message, mediaUrl = null, mediaType = null) {
     try {
       // Get or create conversation for this user
       let conversation = await this.getOrCreateConversation(sender);
       
-      // Process message based on current conversation state
-      const response = await this.handleConversationState(conversation, message);
+      let response;
+      
+      // Check if this is a media message
+      if (mediaUrl && mediaType) {
+        // Process media message
+        response = await this.handleMediaMessage(conversation, mediaUrl, mediaType, message);
+      } else {
+        // Process text message based on current conversation state
+        response = await this.handleConversationState(conversation, message);
+      }
       
       // Update conversation last message timestamp
       conversation.lastMessageTimestamp = new Date();
@@ -86,7 +95,380 @@ class ConversationService {
     }
   }
 
+  async handleMediaMessage(conversation, mediaUrl, mediaType, caption = '') {
+    try {
+      console.log(`Processing ${mediaType} message with URL: ${mediaUrl}`);
+      
+      // Process caption if provided
+      let textContext = '';
+      if (caption && caption.trim().length > 0) {
+        console.log(`Media caption: ${caption}`);
+        textContext = `with caption: "${caption}"`;
+      }
+      
+      // Different handling based on media type
+      switch(mediaType) {
+        case 'image':
+          return await this.handleImageMessage(conversation, mediaUrl, caption);
+        case 'document':
+          return await this.handleDocumentMessage(conversation, mediaUrl, caption);
+        case 'audio':
+          return await this.handleAudioMessage(conversation, mediaUrl);
+        case 'video':
+          return await this.handleVideoMessage(conversation, mediaUrl, caption);
+        case 'location':
+          return await this.handleLocationMessage(conversation, mediaUrl);
+        default:
+          return this.getUnsupportedMediaTypeMessage(conversation.language);
+      }
+    } catch (error) {
+      console.error('Error handling media message:', error);
+      return this.getMediaProcessingErrorMessage(conversation.language);
+    }
+  }
+
+  async handleImageMessage(conversation, imageUrl, caption) {
+    // Use AI to analyze the image
+    try {
+      console.log(`Analyzing image for conversation state: ${conversation.state}`);
+      
+      // For property search states, the user might be sending property images to analyze
+      if (['welcome', 'location', 'budget', 'bhk', 'property_match'].includes(conversation.state)) {
+        // Use AI to analyze the property image
+        const imageAnalysis = await this.aiService.analyzePropertyImage(imageUrl);
+        console.log('Image analysis result:', JSON.stringify(imageAnalysis));
+        
+        if (imageAnalysis && imageAnalysis.isProperty && imageAnalysis.confidence > 0.5) {
+          // Extract property features from the image
+          const propertyFeatures = imageAnalysis.features || {};
+          let updatedPreferences = false;
+          
+          // Update user preferences based on image analysis
+          if (propertyFeatures.location) {
+            conversation.preferences.location = propertyFeatures.location;
+            updatedPreferences = true;
+          }
+          
+          if (propertyFeatures.bhk) {
+            conversation.preferences.bhk = propertyFeatures.bhk;
+            updatedPreferences = true;
+          }
+          
+          // Add property type if available
+          if (propertyFeatures.type && !conversation.preferences.type) {
+            conversation.preferences.type = propertyFeatures.type;
+            updatedPreferences = true;
+          }
+          
+          // Add amenities if available
+          if (propertyFeatures.amenities && propertyFeatures.amenities.length > 0) {
+            conversation.preferences.amenities = propertyFeatures.amenities;
+            updatedPreferences = true;
+          }
+          
+          await conversation.save();
+          
+          // Process caption as additional context if provided
+          let captionContext = '';
+          if (caption && caption.trim().length > 0) {
+            // Extract any additional preferences from caption
+            const captionPreferences = await this.aiService.extractUserPreferences(caption);
+            if (Object.keys(captionPreferences).length > 0) {
+              // Update preferences with caption information
+              conversation.preferences = { ...conversation.preferences, ...captionPreferences };
+              await conversation.save();
+              captionContext = ' and your text description';
+            }
+          }
+          
+          // Determine next steps based on conversation state
+          if (conversation.state === 'welcome' || conversation.state === 'location') {
+            if (propertyFeatures.location) {
+              conversation.state = 'budget';
+              await conversation.save();
+              
+              // Provide response based on extracted features
+              if (conversation.language === 'marathi') {
+                return `मी आपल्या प्रतिमेचे${captionContext} विश्लेषण केले आहे. मला दिसते की आपण ${propertyFeatures.location} मध्ये ${propertyFeatures.type || 'प्रॉपर्टी'} शोधत आहात. ${this.getBudgetPromptMessage(conversation.language)}`;
+              }
+              
+              return `I've analyzed your image${captionContext}. I see you're looking for a property in ${propertyFeatures.location}. ${this.getBudgetPromptMessage('english')}`;
+            }
+          }
+          
+          // For other states, provide detailed analysis
+          const amenitiesText = propertyFeatures.amenities && propertyFeatures.amenities.length > 0 ? 
+            `with amenities like ${propertyFeatures.amenities.slice(0, 3).join(', ')}` : '';
+          
+          if (conversation.language === 'marathi') {
+            return `मी आपल्या प्रतिमेचे${captionContext} विश्लेषण केले आहे. मला दिसते की आपण ${propertyFeatures.bhk || ''}BHK ${propertyFeatures.type || ''} ${propertyFeatures.location || ''} मध्ये शोधत आहात ${amenitiesText ? 'जिथे ' + amenitiesText + ' सुविधा आहेत' : ''}. आपल्या प्राधान्यांची पुष्टी करण्यासाठी कृपया 'होय' टाइप करा किंवा अधिक तपशील प्रदान करा.`;
+          }
+          
+          return `I've analyzed your image${captionContext}. I see you're looking for a ${propertyFeatures.bhk || ''}BHK ${propertyFeatures.type || ''} in ${propertyFeatures.location || ''} ${amenitiesText}. ${propertyFeatures.quality ? 'It appears to be a ' + propertyFeatures.quality + ' property.' : ''} Please type 'yes' to confirm these preferences or provide more details.`;
+        } else {
+          // Image doesn't appear to be a property or low confidence
+          if (conversation.language === 'marathi') {
+            return 'मला क्षमा करा, पण ही प्रतिमा स्पष्टपणे मालमत्ता दर्शवत नाही. कृपया एक स्पष्ट मालमत्ता प्रतिमा पाठवा किंवा आपल्या प्राधान्यांचे वर्णन करा.';
+          }
+          
+          return 'I\'m sorry, but this image doesn\'t clearly show a property. Please send a clear property image or describe your preferences.';
+        }
+      }
+      
+      // For document collection state, user might be sending ID proof or documents
+      if (conversation.state === 'collect_info') {
+        // Try to extract information from the image if it's a document
+        const documentAnalysis = await this.aiService.analyzeDocumentImage(imageUrl);
+        
+        // Check if we extracted any useful information
+        if (documentAnalysis && documentAnalysis.includes('personal information')) {
+          // Document contains personal information, acknowledge receipt
+          if (conversation.language === 'marathi') {
+            return 'आपला दस्तऐवज प्राप्त झाला आहे. आम्ही आपल्या गोपनीयतेचा आदर करतो. कृपया आपले नाव, फोन नंबर आणि भेटीसाठी इच्छित वेळ प्रदान करा.';
+          }
+          
+          return 'I\'ve received your document. We respect your privacy. Please provide your name, phone number, and preferred time for the visit.';
+        }
+        
+        // Generic document acknowledgment
+        if (conversation.language === 'marathi') {
+          return 'आपला दस्तऐवज प्राप्त झाला आहे. कृपया आपले नाव, फोन नंबर आणि भेटीसाठी इच्छित वेळ प्रदान करा.';
+        }
+        
+        return 'I\'ve received your document. Please provide your name, phone number, and preferred time for the visit.';
+      }
+      
+      // Generic response for other states
+      if (conversation.language === 'marathi') {
+        return 'मी आपली प्रतिमा प्राप्त केली आहे. कृपया आपल्या प्राधान्यांबद्दल अधिक माहिती द्या.';
+      }
+      
+      return 'I\'ve received your image. Please provide more information about your preferences.';
+    } catch (error) {
+      console.error('Error analyzing image:', error);
+      if (conversation.language === 'marathi') {
+        return 'क्षमस्व, मला आपली प्रतिमा प्रक्रिया करताना त्रुटी आली. कृपया टेक्स्ट संदेश पाठवून पुन्हा प्रयत्न करा.';
+      }
+      return 'Sorry, I encountered an error processing your image. Please try again with a text message.';
+    }
+  }
+
+  async handleDocumentMessage(conversation, documentUrl, caption) {
+    try {
+      // Use AI to analyze the document
+      const documentText = await this.aiService.analyzeDocumentImage(documentUrl);
+      console.log('Document analysis result:', documentText.substring(0, 100) + '...');
+      
+      // For collect_info state, try to extract user information
+      if (conversation.state === 'collect_info') {
+        // Check if document contains personal information
+        if (documentText.toLowerCase().includes('personal information') || 
+            documentText.toLowerCase().includes('id') || 
+            documentText.toLowerCase().includes('identification')) {
+          // Document contains personal information
+          if (conversation.language === 'marathi') {
+            return 'आपला दस्तऐवज प्राप्त झाला आहे. आम्ही आपल्या गोपनीयतेचा आदर करतो. कृपया आपले नाव, फोन नंबर आणि भेटीसाठी इच्छित वेळ प्रदान करा.';
+          }
+          
+          return 'I\'ve received your document containing personal information. We respect your privacy. Please provide your name, phone number, and preferred time for the visit in a text message.';
+        }
+        
+        // Try to extract property-related information
+        if (documentText.toLowerCase().includes('property') || 
+            documentText.toLowerCase().includes('real estate') || 
+            documentText.toLowerCase().includes('agreement')) {
+          if (conversation.language === 'marathi') {
+            return 'आपला मालमत्ता दस्तऐवज प्राप्त झाला आहे. आम्ही त्याचे विश्लेषण करू आणि लवकरच आपल्याला अधिक माहिती देऊ. तोपर्यंत, कृपया आपले नाव, फोन नंबर आणि भेटीसाठी इच्छित वेळ प्रदान करा.';
+          }
+          
+          return 'I\'ve received your property document. We\'ll analyze it and get back to you with more information soon. In the meantime, please provide your name, phone number, and preferred time for the visit.';
+        }
+      }
+      
+      // Generic response for other states
+      if (conversation.language === 'marathi') {
+        return 'आपला दस्तऐवज प्राप्त झाला आहे. आम्ही लवकरच त्याचे विश्लेषण करू.';
+      }
+      
+      return 'I\'ve received your document. We\'ll analyze it shortly.';
+    } catch (error) {
+      console.error('Error analyzing document:', error);
+      if (conversation.language === 'marathi') {
+        return 'क्षमस्व, मला आपला दस्तऐवज प्रक्रिया करताना त्रुटी आली. कृपया टेक्स्ट संदेश पाठवून पुन्हा प्रयत्न करा.';
+      }
+      return 'Sorry, I encountered an error processing your document. Please try again with a text message.';
+    }
+  }
+
+  async handleAudioMessage(conversation, audioUrl) {
+    try {
+      // Attempt to transcribe audio (placeholder for now)
+      const transcription = await this.aiService.transcribeAudio(audioUrl);
+      console.log('Audio transcription result:', transcription);
+      
+      // If transcription is implemented in the future, process the text
+      if (transcription && transcription !== 'Audio transcription not yet implemented') {
+        // Process the transcribed text as a regular message
+        return await this.handleConversationState(conversation, transcription);
+      }
+      
+      // Default response if transcription is not available
+      if (conversation.language === 'marathi') {
+        return 'आपला ऑडिओ संदेश प्राप्त झाला आहे. सध्या, मी ऑडिओ प्रक्रिया करू शकत नाही. कृपया आपल्या प्राधान्यांबद्दल टेक्स्ट संदेश पाठवा.';
+      }
+      
+      return 'I\'ve received your audio message. Currently, I cannot process audio. Please send a text message about your preferences.';
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      if (conversation.language === 'marathi') {
+        return 'क्षमस्व, मला आपला ऑडिओ प्रक्रिया करताना त्रुटी आली. कृपया टेक्स्ट संदेश पाठवून पुन्हा प्रयत्न करा.';
+      }
+      return 'Sorry, I encountered an error processing your audio. Please try again with a text message.';
+    }
+  }
+
+  async handleVideoMessage(conversation, videoUrl, caption) {
+    try {
+      // For now, we'll use a placeholder for video analysis
+      // In a real implementation, we would extract a thumbnail and analyze it
+      const thumbnailUrl = videoUrl; // In a real implementation, this would be a thumbnail extraction
+      
+      // Use AI to analyze the video (via thumbnail)
+      const videoAnalysis = await this.aiService.analyzePropertyVideo(videoUrl, thumbnailUrl);
+      console.log('Video analysis result:', JSON.stringify(videoAnalysis));
+      
+      if (videoAnalysis && videoAnalysis.isProperty && videoAnalysis.confidence > 0.5) {
+        // Extract property features from the video analysis
+        const propertyFeatures = videoAnalysis.features || {};
+        
+        // Update user preferences based on video analysis
+        if (propertyFeatures.location) {
+          conversation.preferences.location = propertyFeatures.location;
+        }
+        
+        if (propertyFeatures.bhk) {
+          conversation.preferences.bhk = propertyFeatures.bhk;
+        }
+        
+        await conversation.save();
+        
+        // Provide response based on extracted features
+        if (conversation.language === 'marathi') {
+          return `मी आपल्या व्हिडिओचे विश्लेषण केले आहे. मला दिसते की आपण ${propertyFeatures.bhk || ''}BHK ${propertyFeatures.type || ''} ${propertyFeatures.location || ''} मध्ये शोधत आहात. आपल्या प्राधान्यांची पुष्टी करण्यासाठी कृपया 'होय' टाइप करा किंवा अधिक तपशील प्रदान करा.`;
+        }
+        
+        return `I've analyzed your video. I see you're looking for a ${propertyFeatures.bhk || ''}BHK ${propertyFeatures.type || ''} in ${propertyFeatures.location || ''}. Please type 'yes' to confirm these preferences or provide more details.`;
+      }
+      
+      // Generic response if video analysis doesn't yield property information
+      if (conversation.language === 'marathi') {
+        return 'आपला व्हिडिओ प्राप्त झाला आहे. कृपया आपल्या प्राधान्यांबद्दल अधिक माहिती द्या.';
+      }
+      
+      return 'I\'ve received your video. Please provide more information about your property preferences in a text message.';
+    } catch (error) {
+      console.error('Error analyzing video:', error);
+      if (conversation.language === 'marathi') {
+        return 'क्षमस्व, मला आपला व्हिडिओ प्रक्रिया करताना त्रुटी आली. कृपया टेक्स्ट संदेश पाठवून पुन्हा प्रयत्न करा.';
+      }
+      return 'Sorry, I encountered an error processing your video. Please try again with a text message.';
+    }
+  }
+
+  async handleLocationMessage(conversation, locationData) {
+    try {
+      // Extract location data
+      const { latitude, longitude } = locationData;
+      console.log(`Processing location: ${latitude}, ${longitude}`);
+      
+      // Use AI to get location name from coordinates
+      const locationInfo = await this.aiService.extractLocationFromCoordinates(latitude, longitude);
+      const locationName = locationInfo.name || 'Detected Location';
+      const locationDescription = locationInfo.description || '';
+      
+      console.log(`Location identified as: ${locationName}`);
+      
+      // Update user preferences
+      conversation.preferences.location = locationName;
+      await conversation.save();
+      
+      // If we're in the location state, move to budget state
+      if (conversation.state === 'location') {
+        conversation.state = 'budget';
+        await conversation.save();
+        
+        if (conversation.language === 'marathi') {
+          return `मी आपले स्थान नोंदवले आहे: ${locationName}. ${locationDescription ? '(' + locationDescription + ')' : ''} ${this.getBudgetPromptMessage(conversation.language)}`;
+        }
+        
+        return `I've recorded your location: ${locationName}. ${locationDescription ? '(' + locationDescription + ')' : ''} ${this.getBudgetPromptMessage('english')}`;
+      }
+      
+      // Otherwise just acknowledge the location
+      if (conversation.language === 'marathi') {
+        return `मी आपले स्थान नोंदवले आहे: ${locationName}. ${locationDescription ? '(' + locationDescription + ')' : ''} कृपया आपल्या इतर प्राधान्यांबद्दल माहिती द्या.`;
+      }
+      
+      return `I've recorded your location: ${locationName}. ${locationDescription ? '(' + locationDescription + ')' : ''} Please provide information about your other preferences.`;
+    } catch (error) {
+      console.error('Error processing location:', error);
+      if (conversation.language === 'marathi') {
+        return 'क्षमस्व, मला आपले स्थान प्रक्रिया करताना त्रुटी आली. कृपया स्थानाचे नाव टाइप करा.';
+      }
+      return 'Sorry, I encountered an error processing your location. Please type the location name.';
+    }
+  }
+
+  getUnsupportedMediaTypeMessage(language) {
+    if (language === 'marathi') {
+      return 'क्षमस्व, मी या प्रकारच्या मीडिया प्रकाराचे समर्थन करत नाही. कृपया टेक्स्ट संदेश, प्रतिमा किंवा स्थान पाठवा.';
+    }
+    
+    return 'Sorry, I don\'t support this type of media. Please send text messages, images, or locations.';
+  }
+
+  getMediaProcessingErrorMessage(language) {
+    if (language === 'marathi') {
+      return 'क्षमस्व, मला आपला मीडिया प्रक्रिया करताना त्रुटी आली. कृपया टेक्स्ट संदेश पाठवून पुन्हा प्रयत्न करा.';
+    }
+    
+    return 'Sorry, I encountered an error processing your media. Please try again with a text message.';
+  }
+
   async handleConversationState(conversation, message) {
+    // Check for global commands first
+    if (message.toLowerCase() === 'change language' || message.toLowerCase() === 'भाषा बदला') {
+      conversation.state = 'language_selection';
+      await conversation.save();
+      return 'Welcome to Malpure Group! 🏠\n\nPlease select your preferred language:\n\n1. English\n2. मराठी (Marathi)\n\nReply with just the number (1-2) to select your language.';
+    }
+    
+    if (message.toLowerCase() === 'restart' || message.toLowerCase() === 'पुन्हा सुरू करा' || message.toLowerCase() === 'start over' || message.toLowerCase() === 'new search') {
+      conversation.state = 'welcome';
+      conversation.preferences = {};
+      conversation.matchedProperties = [];
+      conversation.selectedProperty = null;
+      await conversation.save();
+      return this.getWelcomeMessage(conversation.language);
+    }
+    
+    if (message.toLowerCase() === 'help' || message.toLowerCase() === 'मदत') {
+      return this.getHelpMessage(conversation.language, conversation.state);
+    }
+    
+    // Check for conversation timeout
+    const now = new Date();
+    const lastMessageTime = conversation.lastMessageTimestamp || now;
+    const hoursSinceLastMessage = (now - lastMessageTime) / (1000 * 60 * 60);
+    
+    // If more than 24 hours since last message, reset to welcome
+    if (hoursSinceLastMessage > 24) {
+      conversation.state = 'welcome';
+      conversation.preferences = {};
+      await conversation.save();
+      return this.getWelcomeMessage(conversation.language);
+    }
+    
     const state = conversation.state;
     let response;
     
@@ -157,7 +539,7 @@ class ConversationService {
     }
     
     // Default to English
-    return 'Welcome to Malpure Group! 🏠\n\nI\'m here to help you find your dream property. To get started, please select a location you\'re interested in:\n\n1. Nashik\n2. Mumbai\n3. Pune\n4. Other\n\n\nReply with just the number (1-4) to select your preferred location.';
+    return 'Welcome to Malpure Group! 🏠\n\nI\'m here to help you find your dream property. To get started, Please reply with just the number (1) to continue.';
   }
 
   async handleWelcomeState(conversation, message) {
@@ -888,7 +1270,7 @@ class ConversationService {
   async createAppointment(conversation) {
     try {
       // Create appointment using appointment service
-      await this.appointmentService.createAppointment({
+      const appointment = await this.appointmentService.createAppointment({
         userId: conversation.userId,
         propertyId: conversation.selectedProperty,
         name: conversation.userInfo.name,
@@ -898,10 +1280,67 @@ class ConversationService {
         status: 'scheduled'
       });
       
+      // Store appointment ID in conversation for reference
+      conversation.appointmentId = appointment._id;
+      await conversation.save();
+      
       return true;
     } catch (error) {
       console.error('Error creating appointment:', error);
       return false;
+    }
+  }
+  
+  // Provide context-aware help messages based on conversation state
+  getHelpMessage(language, state) {
+    if (language === 'marathi') {
+      // Marathi help messages
+      switch(state) {
+        case 'language_selection':
+          return 'आपण भाषा निवडत आहात. कृपया 1 (इंग्रजी) किंवा 2 (मराठी) निवडा.';
+        case 'welcome':
+          return 'आपले स्वागत आहे! पुढे जाण्यासाठी 1 टाइप करा.';
+        case 'location':
+          return 'आपण स्थान निवडत आहात. कृपया 1-4 मधील एक क्रमांक निवडा किंवा "restart" टाइप करा.';
+        case 'budget':
+          return 'आपण बजेट श्रेणी निवडत आहात. कृपया 1-5 मधील एक क्रमांक निवडा.';
+        case 'bhk':
+          return 'आपण बेडरूमची संख्या निवडत आहात. कृपया 1-5 मधील एक क्रमांक निवडा.';
+        case 'property_match':
+          return 'आपण मालमत्ता पाहत आहात. अधिक माहितीसाठी मालमत्ता क्रमांक निवडा किंवा "restart" टाइप करा.';
+        case 'schedule_visit':
+          return 'आपण भेट ठरवत आहात. भेट ठरवण्यासाठी 1 निवडा किंवा मालमत्ता यादीकडे परत जाण्यासाठी 2 निवडा.';
+        case 'collect_info':
+          return 'आपण भेटीसाठी माहिती प्रदान करत आहात. कृपया विनंती केलेली माहिती प्रदान करा.';
+        case 'completed':
+          return 'आपली भेट ठरली आहे. नवीन शोध सुरू करण्यासाठी 1, अपॉइंटमेंट तपशील पाहण्यासाठी 2, किंवा संभाषण संपवण्यासाठी 3 टाइप करा.';
+        default:
+          return 'मदतीसाठी, आपण "restart" टाइप करू शकता किंवा "भाषा बदला" टाइप करून भाषा बदलू शकता.';
+      }
+    } else {
+      // English help messages
+      switch(state) {
+        case 'language_selection':
+          return 'You are selecting a language. Please choose 1 (English) or 2 (Marathi).';
+        case 'welcome':
+          return 'Welcome! Type 1 to continue.';
+        case 'location':
+          return 'You are selecting a location. Please choose a number from 1-4 or type "restart".';
+        case 'budget':
+          return 'You are selecting a budget range. Please choose a number from 1-5.';
+        case 'bhk':
+          return 'You are selecting the number of bedrooms. Please choose a number from 1-5.';
+        case 'property_match':
+          return 'You are viewing properties. Select a property number for more details or type "restart".';
+        case 'schedule_visit':
+          return 'You are scheduling a visit. Choose 1 to schedule a visit or 2 to go back to the property list.';
+        case 'collect_info':
+          return 'You are providing information for your visit. Please provide the requested information.';
+        case 'completed':
+          return 'Your visit has been scheduled. Type 1 to start a new search, 2 to view appointment details, or 3 to end the conversation.';
+        default:
+          return 'For help, you can type "restart" at any time or "change language" to switch languages.';
+      }
     }
   }
 
@@ -914,13 +1353,32 @@ class ConversationService {
       conversation.matchedProperties = [];
       conversation.selectedProperty = null;
       conversation.userInfo = {};
+      // Keep the appointmentId for reference
       await conversation.save();
       
       // Return welcome message
       return this.getWelcomeMessage(conversation.language);
     } else if (message === '2') {
       // User wants to view appointment details
-      const property = await Property.findById(conversation.selectedProperty);
+      let appointment;
+      let property;
+      
+      // Try to get appointment details from stored appointmentId
+      if (conversation.appointmentId) {
+        try {
+          appointment = await this.appointmentService.getAppointment(conversation.appointmentId);
+          property = appointment.propertyId; // This is populated by the getAppointment method
+        } catch (error) {
+          console.error('Error retrieving appointment:', error);
+          // Fall back to using the selectedProperty if appointment retrieval fails
+        }
+      }
+      
+      // If appointment not found, fall back to using the conversation data
+      if (!property) {
+        property = await Property.findById(conversation.selectedProperty);
+      }
+      
       if (!property) {
         if (conversation.language === 'marathi') {
           return 'माफ करा, अपॉइंटमेंट तपशील आढळले नाहीत. नवीन शोध सुरू करण्यासाठी 1 टाइप करा.';
@@ -928,18 +1386,29 @@ class ConversationService {
         return 'Sorry, appointment details not found. Type 1 to start a new search.';
       }
       
+      // Get the date/time - either from appointment or from conversation
+      const dateTime = appointment ? appointment.dateTime : conversation.userInfo.preferredTime;
+      
       // Format the date for display
       const options = { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-      const formattedTime = conversation.userInfo.preferredTime.toLocaleDateString(
+      const formattedTime = dateTime.toLocaleDateString(
         conversation.language === 'marathi' ? 'mr-IN' : 'en-US', 
         options
       );
+      
+      // Get appointment status if available
+      const status = appointment ? appointment.status : 'scheduled';
+      const statusText = conversation.language === 'marathi' 
+        ? this.getAppointmentStatusInMarathi(status)
+        : this.getAppointmentStatusInEnglish(status);
       
       if (conversation.language === 'marathi') {
         return `📅 *अपॉइंटमेंट तपशील*\n\n` +
                `मालमत्ता: ${property.title}\n` +
                `स्थान: ${property.location}\n` +
-               `तारीख/वेळ: ${formattedTime}\n\n` +
+               `तारीख/वेळ: ${formattedTime}\n` +
+               `स्थिती: ${statusText}\n` +
+               `संदर्भ क्र.: ${conversation.appointmentId || 'उपलब्ध नाही'}\n\n` +
                `आम्ही आपल्याला पुढील दस्तऐवज पाठवू:\n` +
                `- मालमत्ता ब्रोशर\n` +
                `- फ्लोअर प्लॅन\n` +
@@ -955,7 +1424,9 @@ class ConversationService {
       return `📅 *Appointment Details*\n\n` +
              `Property: ${property.title}\n` +
              `Location: ${property.location}\n` +
-             `Date/Time: ${formattedTime}\n\n` +
+             `Date/Time: ${formattedTime}\n` +
+             `Status: ${statusText}\n` +
+             `Reference #: ${conversation.appointmentId || 'Not available'}\n\n` +
              `We'll be sending you the following documents:\n` +
              `- Property brochure\n` +
              `- Floor plans\n` +
@@ -966,6 +1437,11 @@ class ConversationService {
              `2. View appointment details\n` +
              `3. End conversation\n\n` +
              `Reply with the number of your choice.`;
+    } else if (message.toLowerCase() === 'change language' || message.toLowerCase() === 'भाषा बदला') {
+      // User wants to change language
+      conversation.state = 'language_selection';
+      await conversation.save();
+      return 'Welcome to Malpure Group! 🏠\n\nPlease select your preferred language:\n\n1. English\n2. मराठी (Marathi)\n\nReply with just the number (1-2) to select your language.';
     } else {
       // User wants to end conversation
       if (conversation.language === 'marathi') {
@@ -981,6 +1457,27 @@ class ConversationService {
              `If you have any questions about your appointment or would like to search for more properties in the future, just message us again.\n\n` +
              `We look forward to helping you find your dream property! 🏡✨\n\n` +
              `Have a great day! 👋`;
+    }
+  }
+  
+  // Helper methods for appointment status translation
+  getAppointmentStatusInEnglish(status) {
+    switch(status) {
+      case 'scheduled': return 'Scheduled';
+      case 'confirmed': return 'Confirmed';
+      case 'cancelled': return 'Cancelled';
+      case 'completed': return 'Completed';
+      default: return 'Scheduled';
+    }
+  }
+  
+  getAppointmentStatusInMarathi(status) {
+    switch(status) {
+      case 'scheduled': return 'निश्चित केले';
+      case 'confirmed': return 'पुष्टी केली';
+      case 'cancelled': return 'रद्द केले';
+      case 'completed': return 'पूर्ण झाले';
+      default: return 'निश्चित केले';
     }
   }
 }

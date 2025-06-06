@@ -31,7 +31,7 @@ class AIService {
       const userMessage = `User message: "${message}"`;
 
       const completion = await this.openai.chat.completions.create({
-        model: "deepseek/deepseek-r1:free",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage }
@@ -119,7 +119,7 @@ Current context:
   async extractUserIntent(message) {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "deepseek/deepseek-r1:free",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [{
           role: "system",
           content: `Analyze this user message and return the primary intent. Return only one of these intents:
@@ -151,7 +151,7 @@ Current context:
   async extractLocation(message) {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "deepseek/deepseek-r1:free",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [{
           role: "system",
           content: `Extract the location mentioned in this message: "${message}". If multiple locations are mentioned, return the most specific one. If no clear location is mentioned, respond with "UNCLEAR". Only return the location name, nothing else.`
@@ -170,7 +170,7 @@ Current context:
   async extractBudget(message) {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "deepseek/deepseek-r1:free",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [{
           role: "system",
           content: `Extract the budget range from this message: "${message}". Format the response as MIN-MAX in numbers only (e.g., "1000000-2000000"). Convert any lakh/crore values to their numeric equivalents. If no clear budget is mentioned, respond with "UNCLEAR".`
@@ -196,7 +196,7 @@ Current context:
   async extractBHK(message) {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "deepseek/deepseek-r1:free",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [{
           role: "system",
           content: `Extract the number of bedrooms (BHK) from this message: "${message}". Return only the number (e.g., "2"). If no clear BHK is mentioned, respond with "UNCLEAR".`
@@ -221,7 +221,7 @@ Current context:
   async extractUserInfo(message) {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "deepseek/deepseek-r1:free",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [{
           role: "system",
           content: `Extract the following information from this message:\n` +
@@ -249,7 +249,7 @@ Current context:
   async extractUserPreferences(message) {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [{
           role: "system",
           content: `Extract user preferences from this message about real estate. Return a JSON object with any of these fields that are mentioned:
@@ -286,7 +286,7 @@ Current context:
       ).join('\n');
 
       const completion = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [{
           role: "system",
           content: `Based on user preferences, recommend the best matching properties from the list.
@@ -312,7 +312,7 @@ Current context:
   async processDateTimeInput(dateTimeString) {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "deepseek/deepseek-r1-0528:free",
         messages: [{
           role: "system", 
           content: `Parse this date/time input and return a standardized format. 
@@ -358,6 +358,163 @@ Current context:
     const commaCount = (message.match(/,/g) || []).length;
     
     return emailRegex.test(message) || phoneRegex.test(message) || commaCount >= 1;
+  }
+
+  async analyzePropertyImage(imageUrl) {
+    try {
+      console.log(`Analyzing property image: ${imageUrl}`);
+      
+      // Call vision model to analyze the image
+      const completion = await this.openai.chat.completions.create({
+        model: "deepseek/deepseek-r1-0528:free", // Using vision model
+        messages: [{
+          role: "system",
+          content: `You are a real estate image analyzer specializing in Indian properties. Analyze the provided image and determine:
+          1. If it shows a property (house, apartment, building, etc.)
+          2. Extract key features visible in the image (location hints, property type, approximate size/BHK)
+          3. Any notable amenities visible
+          4. Architectural style and quality assessment
+          5. Surrounding environment (if visible)
+          
+          Return the analysis as JSON with the following structure:
+          {
+            "isProperty": boolean,
+            "features": {
+              "type": string (apartment, villa, house, etc.),
+              "bhk": number (if detectable),
+              "location": string (if detectable),
+              "amenities": array of strings,
+              "quality": string (luxury, premium, standard, budget),
+              "style": string (modern, traditional, etc.),
+              "surroundings": string (description of surroundings if visible)
+            },
+            "description": string (brief description of what's visible),
+            "confidence": number (0-1 indicating confidence in analysis)
+          }`
+        }, {
+          role: "user",
+          content: [
+            { type: "text", text: "Analyze this property image:" },
+            { type: "image_url", image_url: { url: imageUrl } }
+          ]
+        }],
+        max_tokens: 800
+      });
+
+      // Parse the response
+      try {
+        const analysisText = completion.choices[0].message.content.trim();
+        // Extract JSON from the response (handling potential text before/after JSON)
+        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+        return { isProperty: false, confidence: 0 };
+      } catch (parseError) {
+        console.error('Error parsing image analysis result:', parseError);
+        return { isProperty: false, confidence: 0 };
+      }
+    } catch (error) {
+      console.error('Error analyzing property image:', error);
+      return { isProperty: false, confidence: 0 };
+    }
+  }
+
+  async analyzeDocumentImage(imageUrl) {
+    try {
+      // Call vision model to extract text from document
+      const completion = await this.openai.chat.completions.create({
+        model: "deepseek/deepseek-r1-0528:free",
+        messages: [{
+          role: "system",
+          content: `You are a document analyzer for a real estate company. Extract all text from the provided document image.
+          If it appears to be an ID or contains personal information, only extract the type of document
+          and mention that it contains personal information without including the actual details.
+          
+          For real estate documents, extract and organize the following information if present:
+          1. Property details (address, size, type)
+          2. Financial information (price, payment terms)
+          3. Legal information (ownership, encumbrances)
+          4. Contact information (if not personal)
+          
+          Format the extracted information in a structured way.`
+        }, {
+          role: "user",
+          content: [
+            { type: "text", text: "Extract text from this document:" },
+            { type: "image_url", image_url: { url: imageUrl } }
+          ]
+        }],
+        max_tokens: 800
+      });
+
+      return completion.choices[0].message.content.trim();
+    } catch (error) {
+      console.error('Error analyzing document image:', error);
+      return "Error analyzing document";
+    }
+  }
+
+  async transcribeAudio(audioUrl) {
+    // Placeholder for future audio transcription functionality
+    // This would typically use a speech-to-text service
+    console.log(`Audio transcription requested for: ${audioUrl}`);
+    return "Audio transcription not yet implemented";
+  }
+  
+  async analyzePropertyVideo(videoUrl, thumbnailUrl) {
+    try {
+      // For now, we'll analyze the thumbnail image as a proxy for video content
+      // In a production environment, this would extract frames from the video
+      // or use a specialized video analysis service
+      console.log(`Analyzing property video thumbnail: ${thumbnailUrl}`);
+      
+      const imageAnalysis = await this.analyzePropertyImage(thumbnailUrl);
+      
+      // Add video-specific metadata
+      return {
+        ...imageAnalysis,
+        isVideo: true,
+        videoUrl: videoUrl,
+        message: "Video analysis based on thumbnail only. Full video analysis not yet implemented."
+      };
+    } catch (error) {
+      console.error('Error analyzing property video:', error);
+      return { isProperty: false, isVideo: true, confidence: 0 };
+    }
+  }
+  
+  async extractLocationFromCoordinates(latitude, longitude) {
+    try {
+      // In a production environment, this would call a geocoding API
+      // For now, we'll use AI to generate a plausible location description
+      const completion = await this.openai.chat.completions.create({
+        model: "deepseek/deepseek-r1-0528:free",
+        messages: [{
+          role: "system",
+          content: `You are a location analyzer. Given these coordinates: ${latitude}, ${longitude}, 
+          provide a plausible location name and description for India. 
+          Format as JSON: {"name": "Location name", "description": "Brief description"}`
+        }],
+        max_tokens: 100,
+        temperature: 0.3
+      });
+
+      try {
+        const responseText = completion.choices[0].message.content.trim();
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+        return { name: "Unknown Location", description: "Location details not available" };
+      } catch (parseError) {
+        console.error('Error parsing location data:', parseError);
+        return { name: "Unknown Location", description: "Location details not available" };
+      }
+    } catch (error) {
+      console.error('Error extracting location from coordinates:', error);
+      return { name: "Unknown Location", description: "Location details not available" };
+    }
   }
 }
 
