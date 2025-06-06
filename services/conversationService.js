@@ -45,6 +45,19 @@ class ConversationService {
     this.appointmentService = new AppointmentService();
   }
 
+  // Add this at the top of the file with other utility functions
+  async convertMarathiToArabicNumerals(input) {
+    const marathiToArabic = {
+      '०': '0', '१': '1', '२': '2', '३': '3', '४': '4',
+      '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
+    };
+
+    if (typeof input === 'string') {
+      return input.split('').map(char => marathiToArabic[char] || char).join('');
+    }
+    return input;
+  }
+
   async processMessage(sender, message, mediaUrl = null, mediaType = null) {
     try {
       // Get or create conversation for this user
@@ -510,10 +523,11 @@ class ConversationService {
   }
 
   async handleLanguageSelectionState(conversation, message) {
+    const normalizedMessage = convertMarathiToArabicNumerals(message);
     // Check if this is the first message or an invalid selection
-    if (message && message.match(/^[1-2]$/)) {
+    if (normalizedMessage && normalizedMessage.match(/^[1-2]$/)) {
       // Process language selection
-      const languageChoice = parseInt(message);
+      const languageChoice = parseInt(normalizedMessage);
 
       if (languageChoice === 1) {
         conversation.language = 'english';
@@ -535,7 +549,7 @@ class ConversationService {
 
   getWelcomeMessage(language) {
     if (language === 'marathi') {
-      return 'मालपुरे ग्रुपमध्ये आपले स्वागत आहे! 🏠\n\nमी आपल्याला आपले स्वप्नातील घर शोधण्यास मदत करण्यासाठी येथे आहे. सुरू करण्यासाठी, कृपया आपण फक्त क्रमांक (1) सह उत्तर द्या.';
+      return 'मालपुरे ग्रुपमध्ये आपले स्वागत आहे! 🏠\n\nमी आपल्याला आपले स्वप्नातील घर शोधण्यास मदत करण्यासाठी येथे आहे. सुरू करण्यासाठी, कृपया आपण फक्त क्रमांक (१) सह उत्तर द्या.';
     }
 
     // Default to English
@@ -553,7 +567,7 @@ class ConversationService {
 
   getLocationOptionsMessage(language) {
     if (language === 'marathi') {
-      return 'कृपया आपण स्वारस्य असलेले स्थान निवडा:\n\n1. नाशिक\n2. मुंबई\n3. पुणे\n4. इतर\n\n\nआपले पसंतीचे स्थान निवडण्यासाठी फक्त क्रमांक (1-4) सह उत्तर द्या.';
+      return 'कृपया आपण स्वारस्य असलेले स्थान निवडा:\n\n१. नाशिक\n२. मुंबई\n३. पुणे\n४. इतर\n\n\nआपले पसंतीचे स्थान निवडण्यासाठी फक्त क्रमांक (१-४) सह उत्तर द्या.';
     }
 
     // Default to English
@@ -561,6 +575,7 @@ class ConversationService {
   }
 
   async handleLocationState(conversation, message) {
+    message = await this.convertMarathiToArabicNumerals(message);
     // Define location options
     const locationOptions = [
       'Nashik',
@@ -614,12 +629,12 @@ class ConversationService {
       const marathiLocation = locationNames[selectedLocation] || selectedLocation;
 
       return `उत्तम! आपण ${marathiLocation} निवडले आहे. आता, कृपया आपली बजेट श्रेणी निवडा:\n\n` +
-        '1. ₹50 लाखांपेक्षा कमी\n' +
-        '2. ₹50 लाख - ₹1 कोटी\n' +
-        '3. ₹1 कोटी - ₹2 कोटी\n' +
-        '4. ₹2 कोटी - ₹5 कोटी\n' +
-        '5. ₹5 कोटीपेक्षा जास्त\n\n' +
-        'आपली बजेट श्रेणी निवडण्यासाठी फक्त क्रमांक (1-5) सह उत्तर द्या.';
+        '१. ₹५0 लाखांपेक्षा कमी\n' +
+        '२. ₹५0 लाख - ₹१ कोटी\n' +
+        '३. ₹१ कोटी - ₹२ कोटी\n' +
+        '४. ₹२ कोटी - ₹५ कोटी\n' +
+        '५. ₹५ कोटीपेक्षा जास्त\n\n' +
+        'आपली बजेट श्रेणी निवडण्यासाठी फक्त क्रमांक (१-५) सह उत्तर द्या.';
     }
 
     // Default to English
@@ -633,6 +648,7 @@ class ConversationService {
   }
 
   async handleBudgetState(conversation, message) {
+    message = await this.convertMarathiToArabicNumerals(message);
     // Define budget ranges
     const budgetRanges = [
       { min: 0, max: 5000000 },            // Under ₹50 Lakhs
@@ -663,7 +679,7 @@ class ConversationService {
 
   getInvalidBudgetMessage(language) {
     if (language === 'marathi') {
-      return 'कृपया वैध बजेट पर्याय निवडा (1-5).';
+      return 'कृपया वैध बजेट पर्याय निवडा (१-५).';
     }
 
     // Default to English
@@ -672,7 +688,7 @@ class ConversationService {
 
   getBHKOptionsMessage(language) {
     if (language === 'marathi') {
-      return 'उत्तम! आता, कृपया आपण शोधत असलेल्या बेडरूमची संख्या (BHK) निवडा:\n\n1. 1 BHK\n2. 2 BHK\n3. 3 BHK\n4. 4 BHK\n5. 5+ BHK\n\nआपली पसंती निवडण्यासाठी फक्त क्रमांक (1-5) सह उत्तर द्या.';
+      return 'उत्तम! आता, कृपया आपण शोधत असलेल्या बेडरूमची संख्या (BHK) निवडा:\n\n१. 1 BHK\n२. 2 BHK\n३. 3 BHK\n४. 4 BHK\n५. 5+ BHK\n\nआपली पसंती निवडण्यासाठी फक्त क्रमांक (१-५) सह उत्तर द्या.';
     }
 
     // Default to English
@@ -680,6 +696,7 @@ class ConversationService {
   }
 
   async handleBHKState(conversation, message) {
+    message = await this.convertMarathiToArabicNumerals(message);
     // Check if this is a valid BHK selection
     if (!message.match(/^[1-5]$/) &&
       message.toLowerCase() !== 'bhk options' &&
@@ -804,6 +821,7 @@ class ConversationService {
   }
 
   async handlePropertyMatchState(conversation, message) {
+     message = await this.convertMarathiToArabicNumerals(message);
     // Check if user wants to restart
     if (message.toLowerCase() === 'restart' ||
       message.toLowerCase() === 'पुन्हा सुरू करा') { // Added Marathi for 'restart'
@@ -853,8 +871,8 @@ class ConversationService {
     if (conversation.language === 'marathi') {
       return `${propertyDetails}\n\n` +
         `काय करू इच्छिता?\n\n` +
-        `1. या मालमत्तेला भेट देण्यासाठी वेळ ठरवा\n` +
-        `2. मालमत्ता यादीकडे परत जा\n\n` +
+        `१. या मालमत्तेला भेट देण्यासाठी वेळ ठरवा\n` +
+        `२. मालमत्ता यादीकडे परत जा\n\n` +
         `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-2).`;
     }
 
@@ -866,6 +884,7 @@ class ConversationService {
   }
 
   async handleScheduleVisitState(conversation, message) {
+     message = await this.convertMarathiToArabicNumerals(message);
     // Check user's choice
     if (message === '1') {
       // User wants to schedule a visit
@@ -893,13 +912,14 @@ class ConversationService {
     } else {
       // Invalid choice
       if (conversation.language === 'marathi') {
-        return 'कृपया वैध पर्याय निवडा (1-2).';
+        return 'कृपया वैध पर्याय निवडा (१-२).';
       }
       return 'Please select a valid option (1-2).';
     }
   }
 
   async handleCollectInfoState(conversation, message) {
+     message = await this.convertMarathiToArabicNumerals(message);
     const userInfo = conversation.userInfo || {};
 
     // If we don't have name yet
@@ -915,15 +935,15 @@ class ConversationService {
       return 'Thank you! Please provide your contact number.';
     }
 
-    // If we have name but no phone
     if (!userInfo.phone) {
-      // Check if message contains a phone number
+    
+      // Check if message contains a phone number (now handles both formats)
       const phoneMatch = message.match(/\d{10}/);
       let phoneNumber = null;
 
       // Check for Marathi format with prefix
-      if (message.includes('फोन:')) {
-        const parts = message.split('फोन:');
+      if (message.includes('फोन:') || message.includes('Phone:')) {
+        const parts = message.split(/फोन:|Phone:/);
         if (parts.length > 1) {
           const potentialPhone = parts[1].trim().match(/\d{10}/);
           if (potentialPhone) {
@@ -937,9 +957,9 @@ class ConversationService {
       if (!phoneNumber) {
         // Invalid phone number
         if (conversation.language === 'marathi') {
-          return 'कृपया वैध 10-अंकी फोन नंबर प्रदान करा.';
+          return 'कृपया वैध 10-अंकी फोन नंबर प्रदान करा (उदा. ९८७६५४३२१० किंवा 9876543210).';
         }
-        return 'Please provide a valid 10-digit phone number.';
+        return 'Please provide a valid 10-digit phone number (e.g. ९८७६५४३२१० or 9876543210).';
       }
 
       // Save phone number
@@ -948,7 +968,7 @@ class ConversationService {
 
       // Ask for preferred time
       if (conversation.language === 'marathi') {
-        return 'धन्यवाद! कृपया आपली पसंतीची भेटीची तारीख आणि वेळ प्रदान करा (उदा. "उद्या दुपारी 2 वाजता" किंवा "शनिवार सकाळी 11 वाजता").';
+        return 'धन्यवाद! कृपया आपली पसंतीची भेटीची तारीख आणि वेळ प्रदान करा (उदा. "उद्या दुपारी २ वाजता" किंवा "शनिवार सकाळी ११ वाजता").';
       }
       return 'Thank you! Please provide your preferred date and time for the visit (e.g., "Tomorrow at 2 PM" or "Saturday at 11 AM").';
     }
@@ -963,7 +983,7 @@ class ConversationService {
       // If user didn't provide date or time, ask again
       if (!extractedDate || !extractedTime) {
         if (conversation.language === 'marathi') {
-          return 'कृपया भेटीसाठी तारीख आणि वेळ स्पष्टपणे नमूद करा (उदा. "उद्या दुपारी 2 वाजता" किंवा "शनिवार सकाळी 11 वाजता").';
+          return 'कृपया भेटीसाठी तारीख आणि वेळ स्पष्टपणे नमूद करा (उदा. "उद्या दुपारी २ वाजता" किंवा "शनिवार सकाळी ११ वाजता").';
         }
         return 'Please specify a clear date and time for your visit (e.g., "Tomorrow at 2 PM" or "Saturday at 11 AM").';
       }
@@ -1025,11 +1045,11 @@ class ConversationService {
       if (conversation.language === 'marathi') {
         return `छान! 📅 आपली भेट ${formattedTime} साठी निश्चित केली गेली आहे.\n\n` +
           `आपल्या भेटीसाठी आपल्याकडे काही विशेष आवश्यकता किंवा प्रश्न आहेत का? उदाहरणार्थ:\n\n` +
-          `1. कोणत्याही विशेष आवश्यकता नाहीत\n` +
-          `2. वित्तपुरवठा पर्यायांबद्दल माहिती हवी आहे\n` +
-          `3. जवळपासच्या सुविधांमध्ये स्वारस्य आहे\n` +
-          `4. नूतनीकरण शक्यतांबद्दल चर्चा करू इच्छिता\n` +
-          `5. इतर (कृपया निर्दिष्ट करा)\n\n` +
+          `१. कोणत्याही विशेष आवश्यकता नाहीत\n` +
+          `२. वित्तपुरवठा पर्यायांबद्दल माहिती हवी आहे\n` +
+          `३. जवळपासच्या सुविधांमध्ये स्वारस्य आहे\n` +
+          `४. नूतनीकरण शक्यतांबद्दल चर्चा करू इच्छिता\n` +
+          `५. इतर (कृपया निर्दिष्ट करा)\n\n` +
           `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-5).`;
       }
 
@@ -1118,7 +1138,7 @@ class ConversationService {
       } else {
         // Invalid input for special requirements
         if (conversation.language === 'marathi') {
-          return `कृपया एक पर्याय (1-5) निवडा किंवा आपल्या विशिष्ट आवश्यकता प्रदान करा:`;
+          return `कृपया एक पर्याय (१-५) निवडा किंवा आपल्या विशिष्ट आवश्यकता प्रदान करा:`;
         }
         return `Please select an option (1-5) or provide your specific requirements:`;
       }
@@ -1211,10 +1231,10 @@ class ConversationService {
 
         // Add what's next options
         confirmationMessage += `*आपण पुढे काय करू इच्छिता?*\n\n`;
-        confirmationMessage += `1. नवीन मालमत्ता शोध सुरू करा\n`;
-        confirmationMessage += `2. अपॉइंटमेंट तपशील पहा\n`;
-        confirmationMessage += `3. संभाषण संपवा\n\n`;
-        confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-3).`;
+        confirmationMessage += `१. नवीन मालमत्ता शोध सुरू करा\n`;
+        confirmationMessage += `२. अपॉइंटमेंट तपशील पहा\n`;
+        confirmationMessage += `३. संभाषण संपवा\n\n`;
+        confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (१-३).`;
       } else {
         // English confirmation message
         confirmationMessage = `✅ *Booking Confirmed with Malpure Group!*\n\n`;
@@ -1345,6 +1365,7 @@ class ConversationService {
   }
 
   async handleCompletedState(conversation, message) {
+     message = await this.convertMarathiToArabicNumerals(message);
     // Check user's choice for next steps
     if (message === '1') {
       // User wants to start a new property search
@@ -1381,7 +1402,7 @@ class ConversationService {
 
       if (!property) {
         if (conversation.language === 'marathi') {
-          return 'माफ करा, अपॉइंटमेंट तपशील आढळले नाहीत. नवीन शोध सुरू करण्यासाठी 1 टाइप करा.';
+          return 'माफ करा, अपॉइंटमेंट तपशील आढळले नाहीत. नवीन शोध सुरू करण्यासाठी १ टाइप करा.';
         }
         return 'Sorry, appointment details not found. Type 1 to start a new search.';
       }
@@ -1415,9 +1436,9 @@ class ConversationService {
           `- स्थान फायदे\n` +
           `- पेमेंट प्लॅन\n\n` +
           `हे आपल्याला WhatsApp किंवा ईमेल द्वारे पाठवले जातील. आपल्याला कोणत्या विशिष्ट दस्तऐवजामध्ये सर्वाधिक स्वारस्य आहे?\n\n` +
-          `1. नवीन मालमत्ता शोध सुरू करा\n` +
-          `2. अपॉइंटमेंट तपशील पहा\n` +
-          `3. संभाषण संपवा\n\n` +
+          `१. नवीन मालमत्ता शोध सुरू करा\n` +
+          `२. अपॉइंटमेंट तपशील पहा\n` +
+          `३. संभाषण संपवा\n\n` +
           `आपल्या निवडीच्या क्रमांकासह उत्तर द्या.`;
       }
 

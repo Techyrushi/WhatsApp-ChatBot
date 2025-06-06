@@ -4,7 +4,7 @@ class Helpers {
   static formatPhoneNumber(phoneNumber) {
     // Remove all non-digit characters
     const cleaned = phoneNumber.replace(/\D/g, '');
-    
+
     // Add country code if not present (assuming India +91)
     if (cleaned.length === 10) {
       return `+91${cleaned}`;
@@ -13,7 +13,7 @@ class Helpers {
     } else if (cleaned.length === 13 && cleaned.startsWith('91')) {
       return `+${cleaned}`;
     }
-    
+
     return phoneNumber; // Return original if can't format
   }
 
@@ -26,7 +26,7 @@ class Helpers {
   // Parse contact information from user input
   static parseContactInfo(input) {
     const parts = input.split(',').map(part => part.trim());
-    
+
     const contact = {
       name: null,
       email: null,
@@ -58,7 +58,7 @@ class Helpers {
   // Format date for display
   static formatDate(date) {
     if (!date) return '';
-    
+
     const d = date instanceof Date ? date : new Date(date);
     return d.toLocaleDateString('en-IN', {
       weekday: 'long',
@@ -73,7 +73,7 @@ class Helpers {
     if (typeof amount === 'string') {
       return amount; // Already formatted
     }
-    
+
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -85,7 +85,7 @@ class Helpers {
   // Sanitize user input
   static sanitizeInput(input) {
     if (typeof input !== 'string') return input;
-    
+
     return input
       .trim()
       .replace(/[<>]/g, '') // Remove potential HTML tags
@@ -104,7 +104,7 @@ class Helpers {
       'yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'correct',
       'right', 'proceed', 'continue', 'go ahead', 'confirm'
     ];
-    
+
     const lowerMessage = message.toLowerCase().trim();
     return affirmativeWords.some(word => lowerMessage.includes(word));
   }
@@ -115,7 +115,7 @@ class Helpers {
       'no', 'nope', 'cancel', 'stop', 'quit', 'exit',
       'back', 'return', 'previous', 'wrong'
     ];
-    
+
     const lowerMessage = message.toLowerCase().trim();
     return negativeWords.some(word => lowerMessage.includes(word));
   }
@@ -186,7 +186,7 @@ class Helpers {
       'indiranagar', 'jayanagar', 'malleshwaram', 'rajajinagar',
       'hebbal', 'marathahalli', 'sarjapur', 'hsr layout'
     ];
-    
+
     locationWords.forEach(location => {
       if (lowerMessage.includes(location)) {
         keywords.location.push(location);
@@ -212,7 +212,7 @@ class Helpers {
       'parking', 'gym', 'swimming pool', 'security', 'lift',
       'garden', 'balcony', 'power backup', 'club house'
     ];
-    
+
     amenityWords.forEach(amenity => {
       if (lowerMessage.includes(amenity)) {
         keywords.amenities.push(amenity);
@@ -233,7 +233,7 @@ class Helpers {
     };
 
     console.log('User Interaction:', JSON.stringify(logEntry, null, 2));
-    
+
     // In production, you might want to save this to a database
     // or send to a logging service like Winston, etc.
   }
@@ -247,11 +247,11 @@ class Helpers {
   static generateOTP(length = 6) {
     const digits = '0123456789';
     let otp = '';
-    
+
     for (let i = 0; i < length; i++) {
       otp += digits[Math.floor(Math.random() * digits.length)];
     }
-    
+
     return otp;
   }
 
@@ -259,7 +259,7 @@ class Helpers {
   static formatDuration(seconds) {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     } else if (minutes > 0) {
@@ -274,7 +274,7 @@ class Helpers {
     const now = new Date();
     const day = now.getDay(); // 0 = Sunday, 6 = Saturday
     const hour = now.getHours();
-    
+
     // Business hours: Mon-Sat 9 AM - 6 PM
     return day >= 1 && day <= 6 && hour >= 9 && hour < 18;
   }
@@ -291,7 +291,7 @@ class Helpers {
   // Encrypt sensitive data (basic implementation)
   static encryptData(data, key = process.env.ENCRYPTION_KEY) {
     if (!key) return data;
-    
+
     // This is a basic implementation
     // In production, use proper encryption libraries like crypto
     const crypto = require('crypto');
@@ -304,7 +304,7 @@ class Helpers {
   // Decrypt sensitive data
   static decryptData(encryptedData, key = process.env.ENCRYPTION_KEY) {
     if (!key) return encryptedData;
-    
+
     const crypto = require('crypto');
     const decipher = crypto.createDecipher('aes192', key);
     let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
@@ -321,7 +321,7 @@ class Helpers {
   // Get time-based greeting
   static getTimeBasedGreeting() {
     const hour = new Date().getHours();
-    
+
     if (hour < 12) {
       return "Good morning";
     } else if (hour < 17) {
@@ -329,6 +329,19 @@ class Helpers {
     } else {
       return "Good evening";
     }
+  }
+
+  // Add this at the top of the file with other utility functions
+  static convertMarathiToArabicNumerals(input) {
+    const marathiToArabic = {
+      '०': '0', '१': '1', '२': '2', '३': '3', '४': '4',
+      '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
+    };
+
+    if (typeof input === 'string') {
+      return input.split('').map(char => marathiToArabic[char] || char).join('');
+    }
+    return input;
   }
 }
 
