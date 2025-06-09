@@ -1,9 +1,12 @@
 // services/conversationService.js
+const path = require('path');
+const fs = require('fs');
 const mongoose = require('mongoose');
 const Property = require('../models/Property');
 const AIService = require('./aiService');
 const WhatsAppService = require('./whatsappService');
 const AppointmentService = require('./appointmentService');
+
 
 // Define Conversation Schema
 const conversationSchema = new mongoose.Schema({
@@ -629,8 +632,8 @@ class ConversationService {
       const marathiLocation = locationNames[selectedLocation] || selectedLocation;
 
       return `उत्तम! आपण ${marathiLocation} निवडले आहे. आता, कृपया आपली बजेट श्रेणी निवडा:\n\n` +
-        '१. ₹५0 लाखांपेक्षा कमी\n' +
-        '२. ₹५0 लाख - ₹१ कोटी\n' +
+        '१. ₹५० लाखांपेक्षा कमी\n' +
+        '२. ₹५० लाख - ₹१ कोटी\n' +
         '३. ₹१ कोटी - ₹२ कोटी\n' +
         '४. ₹२ कोटी - ₹५ कोटी\n' +
         '५. ₹५ कोटीपेक्षा जास्त\n\n' +
@@ -821,7 +824,7 @@ class ConversationService {
   }
 
   async handlePropertyMatchState(conversation, message) {
-     message = await this.convertMarathiToArabicNumerals(message);
+    message = await this.convertMarathiToArabicNumerals(message);
     // Check if user wants to restart
     if (message.toLowerCase() === 'restart' ||
       message.toLowerCase() === 'पुन्हा सुरू करा') { // Added Marathi for 'restart'
@@ -884,7 +887,7 @@ class ConversationService {
   }
 
   async handleScheduleVisitState(conversation, message) {
-     message = await this.convertMarathiToArabicNumerals(message);
+    message = await this.convertMarathiToArabicNumerals(message);
     // Check user's choice
     if (message === '1') {
       // User wants to schedule a visit
@@ -919,7 +922,7 @@ class ConversationService {
   }
 
   async handleCollectInfoState(conversation, message) {
-     message = await this.convertMarathiToArabicNumerals(message);
+    message = await this.convertMarathiToArabicNumerals(message);
     const userInfo = conversation.userInfo || {};
 
     // If we don't have name yet
@@ -936,7 +939,7 @@ class ConversationService {
     }
 
     if (!userInfo.phone) {
-    
+
       // Check if message contains a phone number (now handles both formats)
       const phoneMatch = message.match(/\d{10}/);
       let phoneNumber = null;
@@ -1365,7 +1368,7 @@ class ConversationService {
   }
 
   async handleCompletedState(conversation, message) {
-     message = await this.convertMarathiToArabicNumerals(message);
+    message = await this.convertMarathiToArabicNumerals(message);
     // Check user's choice for next steps
     if (message === '1') {
       // User wants to start a new property search
@@ -1481,6 +1484,156 @@ class ConversationService {
         `We look forward to helping you find your dream property! 🏡✨\n\n` +
         `Have a great day! 👋`;
     }
+  }
+
+  async handleCompletedState(conversation, message) {
+    message = await this.convertMarathiToArabicNumerals(message);
+
+    // If already in document selection phase, handle document choices
+    if (conversation.documentSelectionPhase) {
+      switch (message) {
+        case '1': // Property Brochure
+          await this.sendPropertyDocument(conversation, 'brochure');
+          conversation.documentSelectionPhase = false;
+          await conversation.save();
+          return this.getFinalMessage(conversation.language);
+
+        case '2': // Floor Plans
+          await this.sendPropertyDocument(conversation, 'floor_plans');
+          conversation.documentSelectionPhase = false;
+          await conversation.save();
+          return this.getFinalMessage(conversation.language);
+
+        case '3': // Images
+          await this.sendPropertyImages(conversation);
+          conversation.documentSelectionPhase = false;
+          await conversation.save();
+          return this.getFinalMessage(conversation.language);
+
+        case '4': // None
+          conversation.documentSelectionPhase = false;
+          await conversation.save();
+          return this.getFinalMessage(conversation.language);
+
+        default:
+          return this.getDocumentOptionsMessage(conversation); // Show options again if invalid
+      }
+    }
+
+    // If NOT in document selection phase, handle main menu options
+    switch (message) {
+      case '1': // User wants brochure (directly send, no extra menu)
+        await this.sendPropertyDocument(conversation, 'brochure');
+        return this.getFinalMessage(conversation.language);
+
+      case '2': // User wants to see document options
+        conversation.documentSelectionPhase = true;
+        await conversation.save();
+        return this.getDocumentOptionsMessage(conversation);
+
+      case '3': // End conversation
+        return this.getFinalMessage(conversation.language);
+
+      case 'change language':
+      case 'भाषा बदला':
+        conversation.state = 'language_selection';
+        await conversation.save();
+        return 'Welcome to Malpure Group! 🏠\n\nPlease select your preferred language:\n\n1. English\n2. मराठी (Marathi)\n\nReply with just the number (1-2) to select your language.';
+
+      default:
+        return this.getFinalMessage(conversation.language);
+    }
+  }
+  // Helper method to get document options message
+  getDocumentOptionsMessage(conversation) {
+    if (conversation.language === 'marathi') {
+      return `कृपया आपल्याला हवा असलेला दस्तऐवज निवडा:\n\n` +
+        `१. मालमत्ता ब्रोशर (PDF)\n` +
+        `२. फ्लोअर प्लॅन (PDF)\n` +
+        `३. मालमत्ता चित्रे\n` +
+        `४. काहीही नको\n\n` +
+        `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-4).`;
+    }
+
+    return `Please select which document you would like to receive:\n\n` +
+      `1. Property Brochure (PDF)\n` +
+      `2. Floor Plans (PDF)\n` +
+      `3. Property Images\n` +
+      `4. None\n\n` +
+      `Reply with the number of your choice (1-4).`;
+  }
+
+
+  // Helper method to send property document
+  async sendPropertyDocument(conversation, documentType) {
+    try {
+      // Define document paths
+      let documentPath, documentName, displayName;
+
+      if (documentType === 'brochure') {
+        documentPath = 'https://6fbd-103-58-152-110.ngrok-free.app/documents/brochure.pdf';
+        documentName = 'Property_Brochure.pdf';
+        displayName = conversation.language === 'marathi' ? 'मालमत्ता ब्रोशर' : 'Property Brochure';
+      } else if (documentType === 'floor_plans') {
+        documentPath = path.join(__dirname, '../documents/floor_plans.pdf');
+        documentName = 'Floor_Plans.pdf';
+        displayName = conversation.language === 'marathi' ? 'फ्लोअर प्लॅन' : 'Floor Plans';
+      }
+
+      // Check if file exists
+      // if (!fs.existsSync(documentPath)) {
+      //   console.error(`Document not found at: ${documentPath}`);
+      //   return this.getDocumentNotAvailableMessage(conversation.language, documentType);
+      // }
+
+      // Send document via WhatsApp
+      await this.whatsappService.sendMessage(
+        conversation.userId,
+        documentPath,
+        documentName,
+        displayName
+      );
+
+    } catch (error) {
+      console.error(`Error sending ${documentType}:`, error);
+      return this.getErrorMessage(conversation.language);
+    }
+  }
+
+  getDocumentNotAvailableMessage(language, documentType) {
+    const docNames = {
+      brochure: { english: 'brochure', marathi: 'ब्रोशर' },
+      floor_plans: { english: 'floor plans', marathi: 'फ्लोअर प्लॅन' }
+    };
+
+    const localizedDocName = docNames[documentType]?.[language] || docNames[documentType]?.english;
+
+    if (language === 'marathi') {
+      return `क्षमस्व, ${localizedDocName} सध्या उपलब्ध नाही. कृपया नंतर पुन्हा प्रयत्न करा.`;
+    }
+    return `Sorry, the ${localizedDocName} is not available. Please try again later.`;
+  }
+
+  getErrorMessage(language, technicalDetail = '') {
+    const messages = {
+      english: `There was an error. ${technicalDetail ? `(Technical: ${technicalDetail})` : 'Please try again later.'}`,
+      marathi: `त्रुटी आली. ${technicalDetail ? `(तांत्रिक माहिती: ${technicalDetail})` : 'कृपया नंतर पुन्हा प्रयत्न करा.'}`
+    };
+
+    return messages[language] || messages.english;
+  }
+
+  // Helper method for final message
+  getFinalMessage(language) {
+    if (language === 'marathi') {
+      return `मालपुरे ग्रुप निवडल्याबद्दल धन्यवाद! 🙏\n\n` +
+        `जर तुम्हाला नवीन संभाषण सुरू करायचे असल्यास, 'restart' असे टाइप करा.\n\n` +
+        `आपला दिवस शुभ असो! 👋`;
+    }
+
+    return `Thank you for choosing Malpure Group! 🙏\n\n` +
+      `If you'd like to start a new conversation, simply type 'restart'.\n\n` +
+      `Have a great day! 👋`;
   }
 
   // Helper methods for appointment status translation
