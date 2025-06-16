@@ -1572,18 +1572,21 @@ class ConversationService {
   // Helper method to send property document
   async sendPropertyDocument(conversation, documentType) {
     try {
-      let documentPath, documentName, displayName;
+      let documentPath, documentName, displayName, documentUrl;
 
       if (documentType === 'brochure') {
         documentPath = 'https://demo.twilio.com/owl.png';
+        documentUrl = 'https://surl.li/xmbbzt';
         documentName = 'Property_Brochure.pdf';
         displayName = conversation.language === 'marathi' ? 'मालमत्ता ब्रोशर' : 'Property Brochure';
       } else if (documentType === 'floor_plans') {
         documentPath = 'https://demo.twilio.com/owl.png';
+        documentUrl = 'https://surl.li/xmbbzt';
         documentName = 'Floor_Plans.pdf';
         displayName = conversation.language === 'marathi' ? 'फ्लोअर प्लॅन' : 'Floor Plans';
       } else if (documentType === 'images') {
         documentPath = 'https://demo.twilio.com/owl.png';
+        documentUrl = 'https://surl.li/xmbbzt';
         documentName = 'Property_Images.zip';
         displayName = conversation.language === 'marathi' ? 'मालमत्ता चित्रे' : 'Property Images';
       } else {
@@ -1591,8 +1594,8 @@ class ConversationService {
       }
 
       const messageBody = conversation.language === 'marathi'
-        ? `📄 ${displayName}\n\nकृपया संलग्न दस्तऐवज डाउनलोड करा.`
-        : `📄 ${displayName}\n\nPlease find the attached document.`;
+        ? `📄 ${displayName}\n\nकृपया खालील लिंकवरून दस्तऐवज डाउनलोड करा:\n${documentUrl}`
+        : `📄 ${displayName}\n\nPlease download the document using the link below:\n${documentUrl}`;
 
       // Send message with document
       await this.whatsappService.sendMessage(
