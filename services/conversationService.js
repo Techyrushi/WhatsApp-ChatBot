@@ -1526,12 +1526,17 @@ class ConversationService {
         await this.sendPropertyDocument(conversation, 'brochure');
         return this.getFinalMessage(conversation.language);
 
-      case '2': // User wants to see document options
-        conversation.documentSelectionPhase = true;
-        await conversation.save();
-        return this.getDocumentOptionsMessage(conversation);
+      case '2':
+        await this.sendPropertyDocument(conversation, 'floor_plans');
+        return this.getFinalMessage(conversation.language);
 
-      case '3': // End conversation
+      case '3':
+        await this.sendPropertyDocument(conversation, 'images');
+        return this.getFinalMessage(conversation.language);
+
+      case '4':
+        conversation.documentSelectionPhase = false;
+        await conversation.save();
         return this.getFinalMessage(conversation.language);
 
       case 'change language':
@@ -1577,6 +1582,12 @@ class ConversationService {
         documentPath = 'https://demo.twilio.com/owl.png';
         documentName = 'Floor_Plans.pdf';
         displayName = conversation.language === 'marathi' ? 'फ्लोअर प्लॅन' : 'Floor Plans';
+      } else if (documentType === 'images') {
+        documentPath = 'https://demo.twilio.com/owl.png';
+        documentName = 'Property_Images.zip';
+        displayName = conversation.language === 'marathi' ? 'मालमत्ता चित्रे' : 'Property Images';
+      } else {
+        throw new Error('Invalid document type');
       }
 
       const messageBody = conversation.language === 'marathi'
