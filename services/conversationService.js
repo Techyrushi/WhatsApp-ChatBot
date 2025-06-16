@@ -876,7 +876,7 @@ class ConversationService {
         `काय करू इच्छिता?\n\n` +
         `१. या मालमत्तेला भेट देण्यासाठी वेळ ठरवा\n` +
         `२. मालमत्ता यादीकडे परत जा\n\n` +
-        `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-2).`;
+        `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (१-२).`;
     }
 
     return `${propertyDetails}\n\n` +
@@ -971,7 +971,7 @@ class ConversationService {
 
       // Ask for preferred time
       if (conversation.language === 'marathi') {
-        return 'धन्यवाद! कृपया आपली पसंतीची भेटीची तारीख आणि वेळ प्रदान करा (उदा. "उद्या दुपारी २ वाजता" किंवा "शनिवार सकाळी ११ वाजता").';
+        return 'धन्यवाद! कृपया आपली पसंतीची भेटीची तारीख आणि वेळ प्रदान करा (उदा. "Tomorrow at 2 PM" किंवा "Saturday at 11 AM").';
       }
       return 'Thank you! Please provide your preferred date and time for the visit (e.g., "Tomorrow at 2 PM" or "Saturday at 11 AM").';
     }
@@ -986,7 +986,7 @@ class ConversationService {
       // If user didn't provide date or time, ask again
       if (!extractedDate || !extractedTime) {
         if (conversation.language === 'marathi') {
-          return 'कृपया भेटीसाठी तारीख आणि वेळ स्पष्टपणे नमूद करा (उदा. "उद्या दुपारी २ वाजता" किंवा "शनिवार सकाळी ११ वाजता").';
+          return 'कृपया भेटीसाठी तारीख आणि वेळ स्पष्टपणे नमूद करा (उदा. "Tomorrow at 2 PM" किंवा "Saturday at 11 AM").';
         }
         return 'Please specify a clear date and time for your visit (e.g., "Tomorrow at 2 PM" or "Saturday at 11 AM").';
       }
@@ -1053,7 +1053,7 @@ class ConversationService {
           `३. जवळपासच्या सुविधांमध्ये स्वारस्य आहे\n` +
           `४. नूतनीकरण शक्यतांबद्दल चर्चा करू इच्छिता\n` +
           `५. इतर (कृपया निर्दिष्ट करा)\n\n` +
-          `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-5).`;
+          `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (१-५).`;
       }
 
       return `Great! 📅 Your visit has been scheduled for ${formattedTime}.\n\n` +
@@ -1567,31 +1567,27 @@ class ConversationService {
   // Helper method to send property document
   async sendPropertyDocument(conversation, documentType) {
     try {
-      // Define document paths
       let documentPath, documentName, displayName;
 
       if (documentType === 'brochure') {
-        documentPath = 'https://6fbd-103-58-152-110.ngrok-free.app/documents/brochure.pdf';
+        documentPath = 'https://demo.twilio.com/owl.png';
         documentName = 'Property_Brochure.pdf';
         displayName = conversation.language === 'marathi' ? 'मालमत्ता ब्रोशर' : 'Property Brochure';
       } else if (documentType === 'floor_plans') {
-        documentPath = path.join(__dirname, '../documents/floor_plans.pdf');
+        documentPath = 'https://demo.twilio.com/owl.png';
         documentName = 'Floor_Plans.pdf';
         displayName = conversation.language === 'marathi' ? 'फ्लोअर प्लॅन' : 'Floor Plans';
       }
 
-      // Check if file exists
-      // if (!fs.existsSync(documentPath)) {
-      //   console.error(`Document not found at: ${documentPath}`);
-      //   return this.getDocumentNotAvailableMessage(conversation.language, documentType);
-      // }
+      const messageBody = conversation.language === 'marathi'
+        ? `📄 ${displayName}\n\nकृपया संलग्न दस्तऐवज डाउनलोड करा.`
+        : `📄 ${displayName}\n\nPlease find the attached document.`;
 
-      // Send document via WhatsApp
+      // Send message with document
       await this.whatsappService.sendMessage(
         conversation.userId,
-        documentPath,
-        documentName,
-        displayName
+        messageBody,
+        documentPath
       );
 
     } catch (error) {
@@ -1599,6 +1595,7 @@ class ConversationService {
       return this.getErrorMessage(conversation.language);
     }
   }
+
 
   getDocumentNotAvailableMessage(language, documentType) {
     const docNames = {
