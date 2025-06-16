@@ -526,11 +526,11 @@ class ConversationService {
   }
 
   async handleLanguageSelectionState(conversation, message) {
-    const normalizedMessage = convertMarathiToArabicNumerals(message);
+    message = await this.convertMarathiToArabicNumerals(message);
     // Check if this is the first message or an invalid selection
-    if (normalizedMessage && normalizedMessage.match(/^[1-2]$/)) {
+    if (message && message.match(/^[1-2]$/)) {
       // Process language selection
-      const languageChoice = parseInt(normalizedMessage);
+      const languageChoice = parseInt(message);
 
       if (languageChoice === 1) {
         conversation.language = 'english';
@@ -1636,11 +1636,13 @@ class ConversationService {
     if (language === 'marathi') {
       return `मालपुरे ग्रुप निवडल्याबद्दल धन्यवाद! 🙏\n\n` +
         `जर तुम्हाला नवीन संभाषण सुरू करायचे असल्यास, 'restart' असे टाइप करा.\n\n` +
+        `जर तुम्हाला भाषा बदलायची असल्यास, 'भाषा बदला' असे टाइप करा.\n\n` +
         `आपला दिवस शुभ असो! 👋`;
     }
 
     return `Thank you for choosing Malpure Group! 🙏\n\n` +
       `If you'd like to start a new conversation, simply type 'restart'.\n\n` +
+      `If you'd like to switch languages, simply type "change language" to switch languages..\n\n` +
       `Have a great day! 👋`;
   }
 
