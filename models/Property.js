@@ -1,223 +1,125 @@
-// models/Property.js
 const mongoose = require('mongoose');
 
 const propertySchema = new mongoose.Schema({
-  title: { 
-    type: String, 
-    required: true, 
-    trim: true 
-  },
-  location: { 
-    type: String, 
-    required: true, 
-    trim: true,
-    index: true
-  },
-  price: { 
-    type: Number, 
-    required: true,
-    min: 0 
-  },
+  title: { type: String, required: true },
   type: { 
     type: String, 
     required: true,
-    enum: ['apartment', 'villa', 'house', 'plot', 'commercial','farmhouse'],
-    index: true
+    enum: ['residential', 'commercial'],
+    default: 'commercial'
   },
-  bedrooms: { 
-    type: Number, 
-    min: 0,
-    index: true
+  subType: {
+    type: String,
+    enum: ['office', 'shop', 'warehouse', 'other'],
+    required: true
   },
-  bathrooms: { 
-    type: Number, 
-    min: 0 
-  },
-  area: { 
-    value: { type: Number, required: true, min: 0 },
+  forSale: { type: Boolean, default: false },
+  forLease: { type: Boolean, default: false },
+  location: { type: String, required: true },
+  price: { type: Number, required: true },
+  carpetArea: {
+    value: { type: Number },
     unit: { type: String, default: 'sq.ft' }
   },
-  amenities: [{ 
-    type: String 
-  }],
-  description: { 
-    type: String, 
-    required: true 
+  builtUpArea: {
+    value: { type: Number },
+    unit: { type: String, default: 'sq.ft' }
   },
-  images: [{ 
-    url: { type: String, required: true },
-    caption: { type: String }
-  }],
-  agent: {
-    name: { type: String, required: true },
-    phone: { type: String, required: true },
-    email: { type: String }
+  parkingSpaces: {
+    fourWheeler: { type: Number, default: 0 }
   },
-  availability: { 
-    type: String, 
+  amenities: [{ type: String }],
+  description: { type: String },
+  availability: {
+    type: String,
     enum: ['available', 'sold', 'rented', 'pending'],
-    default: 'available',
-    index: true
+    default: 'available'
   },
-  features: [{ 
-    type: String 
-  }],
-  yearBuilt: { 
-    type: Number 
-  },
-  furnished: { 
-    type: Boolean, 
-    default: false 
-  },
-  parking: { 
-    type: Boolean, 
-    default: false 
-  },
-  nearbyFacilities: [{
-    type: { type: String },
-    name: { type: String },
-    distance: { type: String }
-  }],
-  views: { 
-    type: Number, 
-    default: 0 
-  },
-  isPromoted: { 
-    type: Boolean, 
-    default: false,
-    index: true
-  }
+  isPromoted: { type: Boolean, default: false }
 }, { timestamps: true });
 
-// Create compound indexes for efficient querying
-propertySchema.index({ location: 1, type: 1, bedrooms: 1, price: 1 });
-propertySchema.index({ availability: 1, isPromoted: 1 });
+// Create indexes for faster queries
+propertySchema.index({ type: 1, subType: 1 });
+propertySchema.index({ forSale: 1, forLease: 1 });
+propertySchema.index({ availability: 1 });
 
-// Format property for WhatsApp display
+// Format for property listing
 propertySchema.methods.formatForList = function(index) {
-  // Basic property information
-  let formattedText = `*${index}. ${this.title}*\n`;
-  formattedText += `   📍 ${this.location}\n`;
-  formattedText += `   💰 ₹${this.price.toLocaleString('en-IN')}\n`;
-  formattedText += `   🏠 ${this.bedrooms}BHK, ${this.area.value} ${this.area.unit}\n`;
+  let text = `${index}. ${this.title}\n`;
+  text += `📍 ${this.location}\n`;
+  text += `💰 ₹${this.price.toLocaleString('en-IN')}\n`;
   
-  // Add amenities (limited to 3 for brevity)
-  if (this.amenities && this.amenities.length > 0) {
-    const displayAmenities = this.amenities.slice(0, 3);
-    formattedText += `   ✨ ${displayAmenities.join(', ')}${this.amenities.length > 3 ? '...' : ''}\n`;
+  if (this.carpetArea?.value) {
+    text += `📏 ${this.carpetArea.value} ${this.carpetArea.unit} carpet area\n`;
   }
   
-  // Add agent information
-  if (this.agent && this.agent.name) {
-    formattedText += `   👤 Agent: ${this.agent.name}\n`;
+  if (this.parkingSpaces?.fourWheeler > 0) {
+    text += `🚗 ${this.parkingSpaces.fourWheeler} parking space(s)\n`;
   }
   
-  // Add property ID for reference
-  formattedText += `   🔢 Property ID: ${this._id.toString().slice(-6)}`;
+  if (this.amenities?.length > 0) {
+    text += `✨ ${this.amenities.slice(0, 3).join(', ')}`;
+    if (this.amenities.length > 3) text += '...';
+    text += '\n';
+  }
   
-  return formattedText;
+  return text;
 };
 
 // Format detailed property information
-propertySchema.methods.formatDetails = function(language) {
-  if (language === 'marathi') {
-    // Property type translations
-    const typeTranslations = {
-      'apartment': 'अपार्टमेंट',
-      'villa': 'विला',
-      'house': 'घर',
-      'plot': 'भूखंड',
-      'commercial': 'व्यावसायिक',
-      'farmhouse': 'फार्महाउस'
-    };
-    
-    // Translate property type
-    const translatedType = typeTranslations[this.type] || this.type;
-    
-    return `🏠 *${this.title}*\n\n` +
-           `📍 स्थान: ${this.location}\n` +
-           `💰 किंमत: ₹${this.price.toLocaleString('en-IN')}\n` +
-           `🛏️ बेडरूम: ${this.bedrooms}\n` +
-           `🚿 बाथरूम: ${this.bathrooms}\n` +
-           `📐 क्षेत्रफळ: ${this.area.value} ${this.area.unit}\n` +
-           `🏢 प्रकार: ${translatedType}\n` +
-           `✨ सुविधा: ${this.amenities.join(', ')}\n\n` +
-           `${this.description}`;
+propertySchema.methods.formatDetails = function(language = 'english') {
+  let text = `*${this.title}*\n\n`;
+  
+  // Location
+  text += language === 'marathi' ? `📍 स्थान: ${this.location}\n` : `📍 Location: ${this.location}\n`;
+  
+  // Price
+  const formattedPrice = this.price.toLocaleString('en-IN');
+  text += language === 'marathi' ? `💰 किंमत: ₹${formattedPrice}\n` : `💰 Price: ₹${formattedPrice}\n`;
+  
+  // Property type
+  const typeLabel = language === 'marathi' ? 'प्रकार' : 'Type';
+  text += `🏢 ${typeLabel}: ${this.type} - ${this.subType}\n`;
+  
+  // For sale/lease
+  if (this.forSale && this.forLease) {
+    text += language === 'marathi' ? '🔖 विक्री आणि भाड्यासाठी उपलब्ध\n' : '🔖 Available for Sale and Lease\n';
+  } else if (this.forSale) {
+    text += language === 'marathi' ? '🔖 विक्रीसाठी उपलब्ध\n' : '🔖 Available for Sale\n';
+  } else if (this.forLease) {
+    text += language === 'marathi' ? '🔖 भाड्यासाठी उपलब्ध\n' : '🔖 Available for Lease\n';
   }
   
-  // Default to English
-  return `🏠 *${this.title}*\n\n` +
-         `📍 Location: ${this.location}\n` +
-         `💰 Price: ₹${this.price.toLocaleString('en-IN')}\n` +
-         `🛏️ Bedrooms: ${this.bedrooms}\n` +
-         `🚿 Bathrooms: ${this.bathrooms}\n` +
-         `📐 Area: ${this.area.value} ${this.area.unit}\n` +
-         `🏢 Type: ${this.type}\n` +
-         `✨ Amenities: ${this.amenities.join(', ')}\n\n` +
-         `${this.description}`;
-};
-
-// Static method to find properties by criteria
-propertySchema.statics.findByCriteria = function(criteria) {
-  const query = { availability: 'available' };
-  
-  if (criteria.location) {
-    query.location = { $regex: new RegExp(criteria.location, 'i') };
+  // Area
+  if (this.carpetArea?.value) {
+    const areaLabel = language === 'marathi' ? 'कार्पेट क्षेत्र' : 'Carpet Area';
+    text += `📏 ${areaLabel}: ${this.carpetArea.value} ${this.carpetArea.unit}\n`;
   }
   
-  if (criteria.type) {
-    query.type = criteria.type;
+  if (this.builtUpArea?.value) {
+    const builtUpLabel = language === 'marathi' ? 'बिल्ट-अप क्षेत्र' : 'Built-up Area';
+    text += `📐 ${builtUpLabel}: ${this.builtUpArea.value} ${this.builtUpArea.unit}\n`;
   }
   
-  if (criteria.bedrooms) {
-    query.bedrooms = criteria.bedrooms;
+  // Parking
+  if (this.parkingSpaces?.fourWheeler > 0) {
+    const parkingLabel = language === 'marathi' ? 'पार्किंग' : 'Parking';
+    text += `🚗 ${parkingLabel}: ${this.parkingSpaces.fourWheeler} ${language === 'marathi' ? 'जागा' : 'space(s)'}\n`;
   }
   
-  if (criteria.minPrice && criteria.maxPrice) {
-    query.price = { $gte: criteria.minPrice, $lte: criteria.maxPrice };
-  } else if (criteria.minPrice) {
-    query.price = { $gte: criteria.minPrice };
-  } else if (criteria.maxPrice) {
-    query.price = { $lte: criteria.maxPrice };
+  // Amenities
+  if (this.amenities?.length > 0) {
+    const amenitiesLabel = language === 'marathi' ? 'सुविधा' : 'Amenities';
+    text += `✨ ${amenitiesLabel}: ${this.amenities.join(', ')}\n`;
   }
   
-  if (criteria.amenities && criteria.amenities.length > 0) {
-    query.amenities = { $all: criteria.amenities };
+  // Description
+  if (this.description) {
+    const descLabel = language === 'marathi' ? '📝 वर्णन' : '📝 Description';
+    text += `\n${descLabel}:\n${this.description}\n`;
   }
   
-  return this.find(query);
-};
-
-// Static method to find promoted properties
-propertySchema.statics.findPromoted = function(limit = 5) {
-  return this.find({ 
-    availability: 'available',
-    isPromoted: true 
-  })
-  .sort({ createdAt: -1 })
-  .limit(limit);
-};
-
-// Static method to find similar properties
-propertySchema.statics.findSimilar = function(property, limit = 3) {
-  return this.find({
-    _id: { $ne: property._id },
-    availability: 'available',
-    location: property.location,
-    type: property.type,
-    bedrooms: property.bedrooms,
-    price: { 
-      $gte: property.price * 0.8, 
-      $lte: property.price * 1.2 
-    }
-  })
-  .limit(limit);
-};
-
-// Increment view count
-propertySchema.methods.incrementViews = function() {
-  this.views += 1;
-  return this.save();
+  return text;
 };
 
 const Property = mongoose.model('Property', propertySchema);
