@@ -151,7 +151,13 @@ class ConversationService {
       message.toLowerCase() === "start over" ||
       message.toLowerCase() === "new search" ||
       message.toLowerCase() === "main menu" ||
-      message.toLowerCase() === "मुख्य मेनू"
+      message.toLowerCase() === "मुख्य मेनू" ||
+      message.toLowerCase() === "hi, i'm interested in your commercial space. please share the details." ||
+      message.toLowerCase() === "नमस्कार, मला तुमच्या व्यावसायिक जागेत रस आहे. कृपया तपशील शेअर करा." ||
+      message.toLowerCase() === "hi" ||
+      message.toLowerCase() === "hello" ||
+      message.toLowerCase() === "नमस्कार" ||
+      message.toLowerCase() === "हाय" 
     ) {
       conversation.state = "welcome";
       conversation.preferences = {};
@@ -240,7 +246,7 @@ class ConversationService {
       return "मालपुरे ग्रुपशी जोडल्याबद्दल धन्यवाद! 🏢\n\nआमच्या प्रीमियम कमर्शियल प्रोजेक्टची माहिती:\n\nप्रोजेक्ट: आशीर्वाद बाय मालपुरे ग्रुप\nस्थान: ठटे नगर, कॉलेज रोड, नाशिक\n✅ RERA नोंदणीकृत | वापरासाठी तयार | NMC पूर्णता प्रमाणपत्र\nपुरेशी पार्किंग | दुकाने फ्रंटेजसह | प्रीमियम ऑफिस युनिट्स\n\n.निवड प्रक्रिया सुरू करण्यासाठी, कृपया आपण फक्त क्रमांक 1️⃣ सह उत्तर द्या.";
     }
 
-    return "Thank you for connecting with MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nPlease choose what you're looking for\nTo get started, Please reply with just the number 1️⃣ to continue.";
+    return "Thank you for connecting with MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nTo get started, Please reply with just the number 1️⃣ to continue.";
   }
 
   async handleWelcomeState(conversation, message) {
@@ -940,9 +946,11 @@ class ConversationService {
         confirmationMessage += `🚿 ${property.bathrooms} बाथरूम\n`;
         // Use carpetArea if available, otherwise try builtUpArea, or skip if neither exists
         if (property.carpetArea && property.carpetArea.value) {
-          confirmationMessage += `dY"? ${property.carpetArea.value} ${property.carpetArea.unit}\n\n`;
+          confirmationMessage += `${property.carpetArea.value} ${property.carpetArea.unit}\n\n`;
         } else if (property.builtUpArea && property.builtUpArea.value) {
-          confirmationMessage += `dY"? ${property.builtUpArea.value} ${property.builtUpArea.unit}\n\n`;
+          confirmationMessage += `${property.builtUpArea.value} ${property.builtUpArea.unit}\n\n`;
+        } else if (property.parkingSpaces && property.parkingSpaces.value) {
+          confirmationMessage += `${property.parkingSpaces.value} पार्किंग जागा\n\n`;
         } else {
           confirmationMessage += "\n";
         }
@@ -956,7 +964,7 @@ class ConversationService {
         if (
           conversation.userInfo.specialRequirements &&
           conversation.userInfo.specialRequirements !==
-            "कोणत्याही विशेष आवश्यकता नाहीत"
+          "कोणत्याही विशेष आवश्यकता नाहीत"
         ) {
           confirmationMessage += `*विशेष आवश्यकता:*\n`;
           confirmationMessage += `✏️ ${conversation.userInfo.specialRequirements}\n\n`;
@@ -987,34 +995,29 @@ class ConversationService {
         confirmationMessage += `💰 ₹${property.price.toLocaleString(
           "en-IN"
         )}\n`;
-        confirmationMessage += `🏢 ${
-          property.type.charAt(0).toUpperCase() + property.type.slice(1)
-        }\n`;
-        confirmationMessage += `🛏️ ${property.bedrooms} Bedroom${
-          property.bedrooms > 1 ? "s" : ""
-        }\n`;
-        confirmationMessage += `🚿 ${property.bathrooms} Bathroom${
-          property.bathrooms > 1 ? "s" : ""
-        }\n`;
+        confirmationMessage += `🏢 ${property.type.charAt(0).toUpperCase() + property.type.slice(1)
+          }\n`;
         // Use carpetArea if available, otherwise try builtUpArea, or skip if neither exists
         if (property.carpetArea && property.carpetArea.value) {
-          confirmationMessage += `dY"? ${property.carpetArea.value} ${property.carpetArea.unit}\n\n`;
+          confirmationMessage += `${property.carpetArea.value} sq.ft\n\n`;
         } else if (property.builtUpArea && property.builtUpArea.value) {
-          confirmationMessage += `dY"? ${property.builtUpArea.value} ${property.builtUpArea.unit}\n\n`;
+          confirmationMessage += `${property.builtUpArea.value} sq.ft\n\n`;
+        } else if (property.parkingSpaces && property.parkingSpaces.value) {
+          confirmationMessage += `${property.parkingSpaces.value}\n\n`;
         } else {
           confirmationMessage += "\n";
         }
 
         // Add agent details
         confirmationMessage += `*Your Dedicated Agent:*\n`;
-        confirmationMessage += `👤 ${agent.name}\n`;
-        confirmationMessage += `📱 ${agent.phone}\n\n`;
+        confirmationMessage += `👤 Rakesh Sharma\n`;
+        confirmationMessage += `📱 +917875693975\n\n`;
 
         // Add special requirements if any
         if (
           conversation.userInfo.specialRequirements &&
           conversation.userInfo.specialRequirements !==
-            "No special requirements"
+          "No special requirements"
         ) {
           confirmationMessage += `*Special Requirements:*\n`;
           confirmationMessage += `✏️ ${conversation.userInfo.specialRequirements}\n\n`;
@@ -1026,7 +1029,7 @@ class ConversationService {
         // Add what's next options
         confirmationMessage += `*What would you like to do next?*\n\n`;
         confirmationMessage += `1️⃣. Start a new property search\n`;
-        confirmationMessage += `2️⃣. View appointment details\n`;
+        confirmationMessage += `2️⃣. View Appointment Details\n`;
         confirmationMessage += `3️⃣. End conversation\n\n`;
         confirmationMessage += `Reply with the number of your choice (1-3).`;
       }
@@ -1435,17 +1438,17 @@ class ConversationService {
           return this.getWelcomeMessage(conversation.language);
 
         case "2": // View appointment details or documents
-          // If user is coming from appointment details view and selects option 2, show document options
           if (conversation.viewingAppointmentDetails) {
+            // If already viewing details, show document options
             conversation.documentSelectionPhase = true;
             await conversation.save();
             return this.getDocumentOptionsMessage(conversation);
+          } else {
+            // First time selecting option 2 - show appointment details
+            conversation.viewingAppointmentDetails = true;
+            await conversation.save();
+            return await this.getAppointmentDetails(conversation);
           }
-          // Otherwise, show appointment details and set the flag
-          conversation.viewingAppointmentDetails = true;
-          await conversation.save();
-          return await this.getAppointmentDetails(conversation);
-
         case "3": // End conversation
           conversation.viewingAppointmentDetails = false;
           conversation.documentSelectionPhase = false;
@@ -1533,7 +1536,7 @@ class ConversationService {
       let documentPath, documentName, displayName, documentUrl;
 
       if (documentType === "brochure") {
-        documentPath = "https://demo.twilio.com/owl.png";
+        documentPath = "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
         documentUrl = "https://surl.li/xmbbzt";
         documentName = "Property_Brochure.pdf";
         displayName =
@@ -1541,7 +1544,7 @@ class ConversationService {
             ? "मालमत्ता ब्रोशर"
             : "Property Brochure";
       } else if (documentType === "floor_plans") {
-        documentPath = "https://demo.twilio.com/owl.png";
+        documentPath = "https://i.ibb.co/23HqKCPg/image-123650291-3.jpg";
         documentUrl = "https://surl.li/xmbbzt";
         documentName = "Floor_Plans.pdf";
         displayName =
@@ -1616,9 +1619,8 @@ class ConversationService {
 
       // Sample image URLs - in a real app, these would come from the property database
       const imageUrls = [
-        "https://demo.twilio.com/owl.png",
-        "https://demo.twilio.com/owl.png",
-        "https://demo.twilio.com/owl.png",
+        "https://i.ibb.co/zWBLbZMx/image-123650291-2.jpg",
+        "https://i.ibb.co/23HqKCPg/image-123650291-3.jpg",
       ];
 
       // Check if we have images to send
@@ -1684,16 +1686,14 @@ class ConversationService {
 
   getErrorMessage(language, technicalDetail = "") {
     const messages = {
-      english: `There was an error. ${
-        technicalDetail
-          ? `(Technical: ${technicalDetail})`
-          : "Please try again later."
-      }`,
-      marathi: `त्रुटी आली. ${
-        technicalDetail
-          ? `(तांत्रिक माहिती: ${technicalDetail})`
-          : "कृपया नंतर पुन्हा प्रयत्न करा."
-      }`,
+      english: `There was an error. ${technicalDetail
+        ? `(Technical: ${technicalDetail})`
+        : "Please try again later."
+        }`,
+      marathi: `त्रुटी आली. ${technicalDetail
+        ? `(तांत्रिक माहिती: ${technicalDetail})`
+        : "कृपया नंतर पुन्हा प्रयत्न करा."
+        }`,
     };
 
     return messages[language] || messages.english;
@@ -1702,7 +1702,7 @@ class ConversationService {
   // Helper method for final message
   getFinalMessage(language) {
     try {
-      // Default to English if language is not specified
+
       const userLanguage = language || "english";
 
       if (userLanguage === "marathi") {
@@ -1822,12 +1822,10 @@ class ConversationService {
       if (conversation.language === "marathi") {
         // Marathi appointment details
         detailsMessage = `📅 *अपॉइंटमेंट तपशील*\n\n`;
-        detailsMessage += `🏠 *मालमत्ता:* ${
-          property ? property.title : "उपलब्ध नाही"
-        }\n`;
-        detailsMessage += `📍 *स्थान:* ${
-          property ? property.location : "उपलब्ध नाही"
-        }\n`;
+        detailsMessage += `🏠 *मालमत्ता:* ${property ? property.title : "उपलब्ध नाही"
+          }\n`;
+        detailsMessage += `📍 *स्थान:* ${property ? property.location : "उपलब्ध नाही"
+          }\n`;
         detailsMessage += `⏰ *वेळ:* ${formattedTime}\n`;
         detailsMessage += `👤 *नाव:* ${appointment.userName}\n`;
         detailsMessage += `📱 *फोन:* ${appointment.userPhone}\n`;
@@ -1839,10 +1837,6 @@ class ConversationService {
           detailsMessage += `✏️ *विशेष आवश्यकता:* ${appointment.notes}\n`;
         }
 
-        // Add property document options
-        detailsMessage += `\n📄 *मालमत्ता दस्तऐवज*\n`;
-        detailsMessage += `आपल्याला मालमत्ता दस्तऐवज हवे आहेत का? 'दस्तऐवज' टाइप करा किंवा खालील पर्यायांमधून निवडा:\n\n`;
-
         // Add main menu options
         detailsMessage += `*पुढे काय करायचे आहे?*\n\n`;
         detailsMessage += `1️⃣. नवीन मालमत्ता शोध सुरू करा\n`;
@@ -1852,12 +1846,10 @@ class ConversationService {
       } else {
         // English appointment details
         detailsMessage = `📅 *Appointment Details*\n\n`;
-        detailsMessage += `🏠 *Property:* ${
-          property ? property.title : "Not available"
-        }\n`;
-        detailsMessage += `📍 *Location:* ${
-          property ? property.location : "Not available"
-        }\n`;
+        detailsMessage += `🏠 *Property:* ${property ? property.title : "Not available"
+          }\n`;
+        detailsMessage += `📍 *Location:* ${property ? property.location : "Not available"
+          }\n`;
         detailsMessage += `⏰ *Time:* ${formattedTime}\n`;
         detailsMessage += `👤 *Name:* ${appointment.userName}\n`;
         detailsMessage += `📱 *Phone:* ${appointment.userPhone}\n`;
@@ -1868,10 +1860,6 @@ class ConversationService {
         if (appointment.notes && appointment.notes !== "None") {
           detailsMessage += `✏️ *Special Requirements:* ${appointment.notes}\n`;
         }
-
-        // Add property document options
-        detailsMessage += `\n📄 *Property Documents*\n`;
-        detailsMessage += `Would you like to view property documents? Type 'document' or choose from the options below:\n\n`;
 
         // Add main menu options
         detailsMessage += `*What would you like to do next?*\n\n`;
