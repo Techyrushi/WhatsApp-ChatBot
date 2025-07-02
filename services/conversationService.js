@@ -142,7 +142,7 @@ class ConversationService {
     ) {
       conversation.state = "language_selection";
       await conversation.save();
-      return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1-2) to select your language.";
+      return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
     }
 
     if (
@@ -152,12 +152,14 @@ class ConversationService {
       message.toLowerCase() === "new search" ||
       message.toLowerCase() === "main menu" ||
       message.toLowerCase() === "मुख्य मेनू" ||
-      message.toLowerCase() === "hi, i'm interested in your commercial space. please share the details." ||
-      message.toLowerCase() === "नमस्कार, मला तुमच्या व्यावसायिक जागेत रस आहे. कृपया तपशील शेअर करा." ||
+      message.toLowerCase() ===
+        "hi, i'm interested in your commercial space. please share the details." ||
+      message.toLowerCase() ===
+        "नमस्कार, मला तुमच्या व्यावसायिक जागेत रस आहे. कृपया तपशील शेअर करा." ||
       message.toLowerCase() === "hi" ||
       message.toLowerCase() === "hello" ||
       message.toLowerCase() === "नमस्कार" ||
-      message.toLowerCase() === "हाय" 
+      message.toLowerCase() === "हाय"
     ) {
       conversation.state = "welcome";
       conversation.preferences = {};
@@ -238,7 +240,7 @@ class ConversationService {
       return this.getWelcomeMessage(conversation.language);
     }
 
-    return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1-2) to select your language.";
+    return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
   }
 
   getWelcomeMessage(language) {
@@ -260,7 +262,7 @@ class ConversationService {
       return "कृपया आपण स्वारस्य असलेले प्रकार निवडा:\n\n1️⃣. ऑफिस खरेदीमध्ये स्वारस्य\n2️⃣. ऑफिस भाड्याने घेण्यासाठी स्वारस्य\n3️⃣. दुकान भाड्याने घेण्यासाठी स्वारस्य\n\nआपला पर्याय निवडण्यासाठी फक्त क्रमांक (१-३) सह उत्तर द्या.";
     }
 
-    return "Please choose what you're looking for:\n\n1️⃣. Interested in Office Purchase\n2️⃣. Interested in Office Leasing\n3️⃣. Interested in Shop Leasing\n\nReply with just the number (1-3) to select your option.";
+    return "Please choose what you're looking for:\n\n1️⃣. Interested in Office Purchase\n2️⃣. Interested in Office Leasing\n3️⃣. Interested in Shop Leasing\n\nReply with just the number (1️⃣-3️⃣) to select your option.";
   }
 
   async handlePropertyTypeState(conversation, message) {
@@ -427,7 +429,7 @@ class ConversationService {
       `What would you like to do?\n\n` +
       `1️⃣. Schedule a visit to this property\n` +
       `2️⃣. Go back to property list\n\n` +
-      `Reply with the number of your choice (1-2).`
+      `Reply with the number of your choice (1️⃣-2️⃣).`
     );
   }
 
@@ -466,7 +468,7 @@ class ConversationService {
       if (conversation.language === "marathi") {
         return "कृपया वैध पर्याय निवडा (१-२).";
       }
-      return "Please select a valid option (1-2).";
+      return "Please select a valid option (1️⃣-2️⃣).";
     }
   }
 
@@ -751,7 +753,7 @@ class ConversationService {
         `3️⃣. Interested in nearby amenities\n` +
         `4️⃣. Want to discuss renovation possibilities\n` +
         `5️⃣. Other (please specify)\n\n` +
-        `Reply with the number of your choice (1-5).`
+        `Reply with the number of your choice (1️⃣-5️⃣).`
       );
     }
 
@@ -808,7 +810,7 @@ class ConversationService {
               await conversation.save();
               return `Please briefly describe your specific requirements or questions:`;
             default:
-              return `Please select a valid option (1-5).`;
+              return `Please select a valid option (1️⃣-5️⃣).`;
           }
         }
 
@@ -854,9 +856,9 @@ class ConversationService {
       } else {
         // Invalid input for special requirements
         if (conversation.language === "marathi") {
-          return `कृपया एक पर्याय (१-५) निवडा किंवा आपल्या विशिष्ट आवश्यकता प्रदान करा:`;
+          return `कृपया एक पर्याय (1️⃣-5️⃣) निवडा किंवा आपल्या विशिष्ट आवश्यकता प्रदान करा:`;
         }
-        return `Please select an option (1-5) or provide your specific requirements:`;
+        return `Please select an option (1️⃣-5️⃣) or provide your specific requirements:`;
       }
     }
 
@@ -945,26 +947,29 @@ class ConversationService {
         confirmationMessage += `🛏️ ${property.bedrooms} बेडरूम\n`;
         confirmationMessage += `🚿 ${property.bathrooms} बाथरूम\n`;
         // Use carpetArea if available, otherwise try builtUpArea, or skip if neither exists
+
         if (property.carpetArea && property.carpetArea.value) {
-          confirmationMessage += `${property.carpetArea.value} ${property.carpetArea.unit}\n\n`;
-        } else if (property.builtUpArea && property.builtUpArea.value) {
-          confirmationMessage += `${property.builtUpArea.value} ${property.builtUpArea.unit}\n\n`;
-        } else if (property.parkingSpaces && property.parkingSpaces.value) {
-          confirmationMessage += `${property.parkingSpaces.value} पार्किंग जागा\n\n`;
-        } else {
-          confirmationMessage += "\n";
+          confirmationMessage += `📏 Carpet Area: ${property.carpetArea.value} sq.ft\n\n`;
+        }
+
+        if (property.builtUpArea && property.builtUpArea.value) {
+          confirmationMessage += `📐 Built-up Area: ${property.builtUpArea.value} sq.ft\n\n`;
+        }
+
+        if (property.parkingSpaces && property.parkingSpaces.value) {
+          confirmationMessage += `🚗 Parking: ${property.parkingSpaces.value} पार्किंग जागा\n\n`;
         }
 
         // Add agent details
         confirmationMessage += `*आपला समर्पित एजंट:*\n`;
-        confirmationMessage += `👤 ${agent.name}\n`;
-        confirmationMessage += `📱 ${agent.phone}\n\n`;
+        confirmationMessage += `👤 Rakesh Sharma\n`;
+        confirmationMessage += `📱 +917875693975\n\n`;
 
         // Add special requirements if any
         if (
           conversation.userInfo.specialRequirements &&
           conversation.userInfo.specialRequirements !==
-          "कोणत्याही विशेष आवश्यकता नाहीत"
+            "कोणत्याही विशेष आवश्यकता नाहीत"
         ) {
           confirmationMessage += `*विशेष आवश्यकता:*\n`;
           confirmationMessage += `✏️ ${conversation.userInfo.specialRequirements}\n\n`;
@@ -995,17 +1000,20 @@ class ConversationService {
         confirmationMessage += `💰 ₹${property.price.toLocaleString(
           "en-IN"
         )}\n`;
-        confirmationMessage += `🏢 ${property.type.charAt(0).toUpperCase() + property.type.slice(1)
-          }\n`;
+        confirmationMessage += `🏢 ${
+          property.type.charAt(0).toUpperCase() + property.type.slice(1)
+        }\n`;
         // Use carpetArea if available, otherwise try builtUpArea, or skip if neither exists
         if (property.carpetArea && property.carpetArea.value) {
-          confirmationMessage += `${property.carpetArea.value} sq.ft\n\n`;
-        } else if (property.builtUpArea && property.builtUpArea.value) {
-          confirmationMessage += `${property.builtUpArea.value} sq.ft\n\n`;
-        } else if (property.parkingSpaces && property.parkingSpaces.value) {
-          confirmationMessage += `${property.parkingSpaces.value}\n\n`;
-        } else {
-          confirmationMessage += "\n";
+          confirmationMessage += `📏 Carpet Area: ${property.carpetArea.value} sq.ft\n\n`;
+        }
+
+        if (property.builtUpArea && property.builtUpArea.value) {
+          confirmationMessage += `📐 Built-up Area: ${property.builtUpArea.value} sq.ft\n\n`;
+        }
+
+        if (property.parkingSpaces && property.parkingSpaces.value) {
+          confirmationMessage += `🚗 Parking: ${property.parkingSpaces.value} space(s)\n\n`;
         }
 
         // Add agent details
@@ -1017,7 +1025,7 @@ class ConversationService {
         if (
           conversation.userInfo.specialRequirements &&
           conversation.userInfo.specialRequirements !==
-          "No special requirements"
+            "No special requirements"
         ) {
           confirmationMessage += `*Special Requirements:*\n`;
           confirmationMessage += `✏️ ${conversation.userInfo.specialRequirements}\n\n`;
@@ -1029,9 +1037,10 @@ class ConversationService {
         // Add what's next options
         confirmationMessage += `*What would you like to do next?*\n\n`;
         confirmationMessage += `1️⃣. Start a new property search\n`;
-        confirmationMessage += `2️⃣. View Appointment Details\n`;
-        confirmationMessage += `3️⃣. End conversation\n\n`;
-        confirmationMessage += `Reply with the number of your choice (1-3).`;
+        confirmationMessage += `2️⃣. View appointment details\n`;
+        confirmationMessage += `3️⃣. View documents\n`;
+        confirmationMessage += `4️⃣. End conversation\n\n`;
+        confirmationMessage += `Reply with the number of your choice (1️⃣-4️⃣).`;
       }
 
       return confirmationMessage;
@@ -1325,7 +1334,8 @@ class ConversationService {
         `These will be sent to you via WhatsApp or email. Is there a specific document you're most interested in?\n\n` +
         `1️⃣. Start a new property search\n` +
         `2️⃣. View appointment details\n` +
-        `3️⃣. End conversation\n\n` +
+        `3️⃣. View documents\n` +
+        `4️. End conversation\n\n` +
         `Reply with the number of your choice.`
       );
     } else if (
@@ -1437,19 +1447,21 @@ class ConversationService {
           await conversation.save();
           return this.getWelcomeMessage(conversation.language);
 
-        case "2": // View appointment details or documents
+        case "2":
+          conversation.viewingAppointmentDetails = true;
+          await conversation.save();
+          return await this.getAppointmentDetails(conversation);
+
+        case "3":
           if (conversation.viewingAppointmentDetails) {
-            // If already viewing details, show document options
             conversation.documentSelectionPhase = true;
             await conversation.save();
             return this.getDocumentOptionsMessage(conversation);
           } else {
-            // First time selecting option 2 - show appointment details
-            conversation.viewingAppointmentDetails = true;
-            await conversation.save();
-            return await this.getAppointmentDetails(conversation);
+            return "Please view the appointment details first by entering 2.";
           }
-        case "3": // End conversation
+
+        case "4": // End conversation
           conversation.viewingAppointmentDetails = false;
           conversation.documentSelectionPhase = false;
           await conversation.save();
@@ -1500,7 +1512,7 @@ class ConversationService {
         `2️⃣. फ्लोअर प्लॅन (PDF)\n` +
         `3️⃣. मालमत्ता चित्रे\n` +
         `4️⃣. काहीही नको\n\n` +
-        `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1-4).`
+        `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣-4️⃣).`
       );
     }
 
@@ -1510,7 +1522,7 @@ class ConversationService {
       `2️⃣. Floor Plans (PDF)\n` +
       `3️⃣. Property Images\n` +
       `4️⃣. None\n\n` +
-      `Reply with the number of your choice (1-4).`
+      `Reply with the number of your choice (1️⃣-4️⃣).`
     );
   }
 
@@ -1536,7 +1548,8 @@ class ConversationService {
       let documentPath, documentName, displayName, documentUrl;
 
       if (documentType === "brochure") {
-        documentPath = "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
+        documentPath =
+          "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
         documentUrl = "https://surl.li/xmbbzt";
         documentName = "Property_Brochure.pdf";
         displayName =
@@ -1686,14 +1699,16 @@ class ConversationService {
 
   getErrorMessage(language, technicalDetail = "") {
     const messages = {
-      english: `There was an error. ${technicalDetail
-        ? `(Technical: ${technicalDetail})`
-        : "Please try again later."
-        }`,
-      marathi: `त्रुटी आली. ${technicalDetail
-        ? `(तांत्रिक माहिती: ${technicalDetail})`
-        : "कृपया नंतर पुन्हा प्रयत्न करा."
-        }`,
+      english: `There was an error. ${
+        technicalDetail
+          ? `(Technical: ${technicalDetail})`
+          : "Please try again later."
+      }`,
+      marathi: `त्रुटी आली. ${
+        technicalDetail
+          ? `(तांत्रिक माहिती: ${technicalDetail})`
+          : "कृपया नंतर पुन्हा प्रयत्न करा."
+      }`,
     };
 
     return messages[language] || messages.english;
@@ -1702,7 +1717,6 @@ class ConversationService {
   // Helper method for final message
   getFinalMessage(language) {
     try {
-
       const userLanguage = language || "english";
 
       if (userLanguage === "marathi") {
@@ -1822,10 +1836,12 @@ class ConversationService {
       if (conversation.language === "marathi") {
         // Marathi appointment details
         detailsMessage = `📅 *अपॉइंटमेंट तपशील*\n\n`;
-        detailsMessage += `🏠 *मालमत्ता:* ${property ? property.title : "उपलब्ध नाही"
-          }\n`;
-        detailsMessage += `📍 *स्थान:* ${property ? property.location : "उपलब्ध नाही"
-          }\n`;
+        detailsMessage += `🏠 *मालमत्ता:* ${
+          property ? property.title : "उपलब्ध नाही"
+        }\n`;
+        detailsMessage += `📍 *स्थान:* ${
+          property ? property.location : "उपलब्ध नाही"
+        }\n`;
         detailsMessage += `⏰ *वेळ:* ${formattedTime}\n`;
         detailsMessage += `👤 *नाव:* ${appointment.userName}\n`;
         detailsMessage += `📱 *फोन:* ${appointment.userPhone}\n`;
@@ -1846,10 +1862,12 @@ class ConversationService {
       } else {
         // English appointment details
         detailsMessage = `📅 *Appointment Details*\n\n`;
-        detailsMessage += `🏠 *Property:* ${property ? property.title : "Not available"
-          }\n`;
-        detailsMessage += `📍 *Location:* ${property ? property.location : "Not available"
-          }\n`;
+        detailsMessage += `🏠 *Property:* ${
+          property ? property.title : "Not available"
+        }\n`;
+        detailsMessage += `📍 *Location:* ${
+          property ? property.location : "Not available"
+        }\n`;
         detailsMessage += `⏰ *Time:* ${formattedTime}\n`;
         detailsMessage += `👤 *Name:* ${appointment.userName}\n`;
         detailsMessage += `📱 *Phone:* ${appointment.userPhone}\n`;
@@ -1864,9 +1882,9 @@ class ConversationService {
         // Add main menu options
         detailsMessage += `*What would you like to do next?*\n\n`;
         detailsMessage += `1️⃣. Start a new property search\n`;
-        detailsMessage += `2️⃣. View documents\n`;
-        detailsMessage += `3️⃣. End conversation\n\n`;
-        detailsMessage += `Reply with the number of your choice (1-3).`;
+        detailsMessage += `3️⃣. View documents\n`;
+        detailsMessage += `4️⃣. End conversation\n\n`;
+        detailsMessage += `Reply with the number of your choice (1️⃣, 3️⃣, 4️⃣).`;
       }
 
       return detailsMessage;
