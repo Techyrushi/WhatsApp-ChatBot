@@ -206,8 +206,13 @@ class AppointmentService {
         return false;
       }
 
-      // Populate property details if needed
-      let propertyInfo = "Property";
+      let propertyInfo = appointment;
+      if (!appointment.propertyId.name) {
+        propertyInfo = await Appointment.findById(
+          appointment._id
+        ).populate("propertyId");
+      }
+
       try {
         if (appointment.propertyId) {
           if (
