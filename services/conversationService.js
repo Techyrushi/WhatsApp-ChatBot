@@ -1017,11 +1017,11 @@ class ConversationService {
 
         // Add what's next options
         confirmationMessage += `*आपण पुढे काय करू इच्छिता?*\n\n`;
-        confirmationMessage += `१. नवीन मालमत्ता शोध सुरू करा\n`;
-        confirmationMessage += `२. अपॉइंटमेंट तपशील पहा\n`;
-        confirmationMessage += `३. दस्तऐवज पहा\n`;
-        confirmationMessage += `४. संभाषण संपवा\n\n`;
-        confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (१-३).`;
+        confirmationMessage += `1️⃣. नवीन मालमत्ता शोध सुरू करा\n`;
+        confirmationMessage += `2️⃣. अपॉइंटमेंट तपशील पहा\n`;
+        confirmationMessage += `3️⃣. दस्तऐवज पहा\n`;
+        confirmationMessage += `4️⃣. संभाषण संपवा\n\n`;
+        confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣-4️⃣).`;
       } else {
         // English confirmation message
         confirmationMessage = `✅ *Booking Confirmed with MALPURE GROUP!*\n\n`;
@@ -1259,7 +1259,7 @@ class ConversationService {
         case "collect_info":
           return "You are providing information for your visit. Please provide the requested information.";
         case "completed":
-          return "Your visit has been scheduled.\n 1️⃣ To start a new search\n 2️⃣ To view appointment details\n 3️⃣ End the conversation.";
+          return "Your visit has been scheduled.\n 1️⃣ To start a new search\n 2️⃣ To view appointment details\n 3️⃣ View documents\n 4️⃣ End conversation.";
         default:
           return 'For help, you can type "restart" at any time or "change language" to switch languages.';
       }
