@@ -5,6 +5,7 @@ const Property = require("../models/Property");
 const AIService = require("./aiService");
 const WhatsAppService = require("./whatsappService");
 const AppointmentService = require("./appointmentService");
+const Helpers = require("../utils/helpers");
 
 // Define Conversation Schema
 const conversationSchema = new mongoose.Schema(
@@ -44,8 +45,10 @@ const conversationSchema = new mongoose.Schema(
     },
     appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Appointment" },
     lastMessageTimestamp: { type: Date, default: Date.now },
+    lastActivityTimestamp: { type: Date, default: Date.now },
     documentSelectionPhase: { type: Boolean, default: false },
     viewingAppointmentDetails: { type: Boolean, default: false },
+    isInactive: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -90,6 +93,28 @@ class ConversationService {
     try {
       let conversation = await this.getOrCreateConversation(sender);
 
+      // Check for inactivity using the helper utility
+      const now = new Date();
+      const lastActivityTime = conversation.lastActivityTimestamp || now;
+
+      // If user was inactive but is now responding
+      if (conversation.isInactive) {
+        // If user types "Hi" to resume or any message after inactivity
+        conversation.isInactive = false;
+        if (message.toLowerCase() === "end") {
+          conversation.state = "welcome";
+          conversation.preferences = {};
+          await conversation.save();
+          return this.getFinalMessage(conversation.language);
+        }
+      }
+      // If user has been inactive for more than 10 minutes
+      else if (Helpers.checkInactivity(lastActivityTime)) {
+        conversation.isInactive = true;
+        await conversation.save();
+        return this.getInactivityMessage(conversation.language);
+      }
+
       let response;
 
       if (mediaUrl && mediaType) {
@@ -103,13 +128,24 @@ class ConversationService {
         response = await this.handleConversationState(conversation, message);
       }
 
-      conversation.lastMessageTimestamp = new Date();
+      // Update timestamps
+      conversation.lastMessageTimestamp = now;
+      conversation.lastActivityTimestamp = now;
+      conversation.isInactive = false;
       await conversation.save();
+
+      // Log the interaction
+      Helpers.logInteraction(sender, message, response, {
+        state: conversation.state,
+        language: conversation.language,
+      });
 
       return response;
     } catch (error) {
-      console.error("Error processing message:", error);
-      return "Sorry, I encountered an error. Please try again later.";
+      // Use enhanced error logging
+      const errorContext = { sender, messageType: mediaUrl ? "media" : "text" };
+      const userFriendlyMessage = Helpers.logError(error, errorContext);
+      return userFriendlyMessage;
     }
   }
 
@@ -159,7 +195,8 @@ class ConversationService {
       message.toLowerCase() === "hi" ||
       message.toLowerCase() === "hello" ||
       message.toLowerCase() === "नमस्कार" ||
-      message.toLowerCase() === "हाय"
+      message.toLowerCase() === "हाय" ||
+      message === "Hi" || message === "Hello"
     ) {
       conversation.state = "welcome";
       conversation.preferences = {};
@@ -982,7 +1019,8 @@ class ConversationService {
         confirmationMessage += `*आपण पुढे काय करू इच्छिता?*\n\n`;
         confirmationMessage += `१. नवीन मालमत्ता शोध सुरू करा\n`;
         confirmationMessage += `२. अपॉइंटमेंट तपशील पहा\n`;
-        confirmationMessage += `३. संभाषण संपवा\n\n`;
+        confirmationMessage += `३. अपॉइंटमेंट तपशील पहा\n`;
+        confirmationMessage += `४. संभाषण संपवा\n\n`;
         confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (१-३).`;
       } else {
         // English confirmation message
@@ -1493,7 +1531,8 @@ class ConversationService {
             return this.getDocumentOptionsMessage(conversation);
           }
 
-          return this.getFinalMessage(conversation.language);
+          // Fallback handling for unrecognized input
+          return this.getUnrecognizedInputMessage(conversation.language);
       }
     } catch (error) {
       console.error("Error in handleCompletedState:", error);
@@ -1548,8 +1587,7 @@ class ConversationService {
       let documentPath, documentName, displayName, documentUrl;
 
       if (documentType === "brochure") {
-        documentPath =
-          "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
+        documentPath = "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
         documentUrl = "https://surl.li/xmbbzt";
         documentName = "Property_Brochure.pdf";
         displayName =
@@ -1714,6 +1752,22 @@ class ConversationService {
     return messages[language] || messages.english;
   }
 
+  // Helper method for unrecognized input message
+  getUnrecognizedInputMessage(language) {
+    if (language === "marathi") {
+      return "मला ते समजले नाही. कृपया वैध क्रमांक (१, २, ३) सह उत्तर द्या किंवा सुरू ठेवण्यासाठी 'मुख्य मेनू' टाइप करा.";
+    }
+    return "I didn't quite understand that. Please reply with a valid number (1️⃣, 2️⃣, 3️⃣) or type 'Main Menu' to continue.";
+  }
+
+  // Helper method for inactivity message
+  getInactivityMessage(language) {
+    if (language === "marathi") {
+      return "असे दिसते की आपण काही वेळ निष्क्रिय आहात. आपण सुरू ठेवू इच्छिता? पुन्हा सुरू करण्यासाठी 'Hi' टाइप करा किंवा हा चॅट बंद करण्यासाठी 'End' टाइप करा.";
+    }
+    return "It seems you've been inactive for a while. Would you like to continue? Type 'Hi' to resume or 'End' to close this chat.";
+  }
+
   // Helper method for final message
   getFinalMessage(language) {
     try {
@@ -1727,6 +1781,8 @@ class ConversationService {
           `• नवीन संभाषण सुरू करण्यासाठी 'restart' टाइप करा\n` +
           `• भाषा बदलण्यासाठी 'भाषा बदला' टाइप करा\n` +
           `• अधिक मदतीसाठी 'help' टाइप करा\n\n` +
+          `📞 अधिक माहितीसाठी:\n` +
+          `संपर्क करा: ९४०३११७११० / ७२७७३९७७७७\n` +
           `आपला दिवस शुभ असो! 👋`
         );
       }
@@ -1738,6 +1794,8 @@ class ConversationService {
         `• Type 'restart' to begin a new conversation\n` +
         `• Type 'change language' to switch languages\n` +
         `• Type 'help' for more assistance\n\n` +
+        `📞 For more information:\n` +
+        `contact: 9403117110 / 7277397777\n` +
         `Have a great day! 👋`
       );
     } catch (error) {
@@ -1856,9 +1914,10 @@ class ConversationService {
         // Add main menu options
         detailsMessage += `*पुढे काय करायचे आहे?*\n\n`;
         detailsMessage += `1️⃣. नवीन मालमत्ता शोध सुरू करा\n`;
-        detailsMessage += `2️⃣. दस्तऐवज पहा\n`;
-        detailsMessage += `3️⃣. संभाषण संपवा\n\n`;
-        detailsMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (१-३).`;
+        detailsMessage += `2️⃣. अपॉइंटमेंट तपशील पुन्हा पहा\n`;
+        detailsMessage += `3️⃣. दस्तऐवज पहा\n`;
+        detailsMessage += `4️⃣. संभाषण संपवा\n\n`;
+        detailsMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣, 2️⃣, 3️⃣, 4️⃣).`;
       } else {
         // English appointment details
         detailsMessage = `📅 *Appointment Details*\n\n`;
@@ -1882,9 +1941,10 @@ class ConversationService {
         // Add main menu options
         detailsMessage += `*What would you like to do next?*\n\n`;
         detailsMessage += `1️⃣. Start a new property search\n`;
+        detailsMessage += `2️⃣. View appointments Details again\n`;
         detailsMessage += `3️⃣. View documents\n`;
         detailsMessage += `4️⃣. End conversation\n\n`;
-        detailsMessage += `Reply with the number of your choice (1️⃣, 3️⃣, 4️⃣).`;
+        detailsMessage += `Reply with the number of your choice (1️⃣, 2️⃣, 3️⃣, 4️⃣).`;
       }
 
       return detailsMessage;

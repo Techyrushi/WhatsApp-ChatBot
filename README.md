@@ -95,6 +95,7 @@ A WhatsApp bot for real estate property management and appointments, built with 
 │   ├── aiService.js        # AI service for personalized responses
 │   ├── appointmentService.js # Appointment management service
 │   ├── conversationService.js # Conversation flow management
+│   ├── googleSheetsService.js # Google Sheets integration for data storage
 │   └── whatsappService.js  # WhatsApp messaging service
 ├── utils/
 │   └── helpers.js          # Utility functions
@@ -130,6 +131,107 @@ Run tests using Jest:
 npm test
 ```
 
+## Google Sheets Integration Setup
+
+The bot can store appointment data in Google Sheets. Follow these steps to set up the integration:
+
+1. **Create a Google Cloud Project**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Enable the Google Sheets API for your project
+
+2. **Create Service Account Credentials**:
+   - In your Google Cloud project, go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "Service Account"
+   - Fill in the service account details and click "Create"
+   - Grant the service account "Editor" access to the project
+   - Create a new JSON key for the service account and download it
+
+3. **Set Up Your Google Sheet**:
+   - Create a new Google Sheet
+   - Add a sheet named "CRM Lead Tracker" with these columns:
+     - Name
+     - Contact
+     - Visit Date & Time
+     - Purpose
+     - Language
+     - Source
+     - Status
+     - Timestamp
+   - Share the sheet with the service account email (with Editor permissions)
+
+4. **Configure Environment Variables**:
+   - Add these variables to your `.env` file:
+   ```
+   GOOGLE_SHEET_ID=your_google_sheet_id
+   GOOGLE_SERVICE_ACCOUNT_EMAIL=your_service_account_email@project.iam.gserviceaccount.com
+   GOOGLE_PRIVATE_KEY="your_private_key_with_newlines"
+   ```
+   - The Sheet ID is in the URL of your Google Sheet: `https://docs.google.com/spreadsheets/d/[THIS_IS_YOUR_SHEET_ID]/edit`
+   - For the private key, copy it from the JSON file and include all newlines (\n)
+
+## Error Handling and Troubleshooting
+
+### Common Issues
+
+1. **Google Sheets API Not Enabled**:
+   - Error: "Google Sheets API has not been used in project ... before or it is disabled"
+   - Solution: Enable the Google Sheets API in your Google Cloud Console
+   - The system will automatically extract the project ID from the error message and provide the exact URL to enable the API
+   - Run `npm run check-sheets` to verify the API status
+
+2. **WhatsApp Message Delivery Failures**:
+   - Check that your Twilio account is active and has sufficient credit
+   - Verify that the phone numbers are in the correct format (with country code)
+   - For sandbox mode, ensure recipients have joined your sandbox
+   - The system now logs unsent messages as a backup
+
+3. **Inactivity Detection Issues**:
+   - If the bot is not detecting inactivity correctly, check the `lastActivityTimestamp` field in the conversation document
+   - Adjust the inactivity timeout in the `Helpers.checkInactivity()` method
+   - Run `npm run check-inactive` to manually check and notify inactive users
+
+4. **Fallback Handling Not Working**:
+   - Ensure the `getUnrecognizedInputMessage` method is being called correctly
+   - Check for any custom message handling that might be bypassing the fallback
+
+### Logging and Monitoring
+
+The application includes enhanced logging mechanisms:
+
+- Standard console logs for general operation
+- Structured error logs with context using `Helpers.logError()`
+- User-friendly error messages based on error type
+- Backup logging for appointment data when Google Sheets integration fails
+- Automatic monitoring scripts for system health checks
+
+### Monitoring Scripts
+
+The following monitoring scripts are available:
+
+1. **Check Inactive Conversations**:
+   ```
+   npm run check-inactive
+   ```
+   This script identifies inactive conversations and sends notifications to users.
+
+2. **Check Google Sheets API Status**:
+   ```
+   npm run check-sheets
+   ```
+   This script verifies the Google Sheets API connection and sends alerts to the admin if there are issues.
+
+### Admin Notifications
+
+Set up admin notifications by configuring these environment variables:
+
+- `ADMIN_WHATSAPP_NUMBER`: WhatsApp number to receive system alerts
+- `NOTIFY_ON_SUCCESS`: Set to `true` to receive notifications for successful checks (default: `false`)
+
+These notifications help you stay informed about system health and potential issues.
+
+For production environments, consider implementing a more robust logging solution like Winston or integrating with a monitoring service.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -139,3 +241,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Twilio for WhatsApp API
 - OpenRouter for AI capabilities
 - MongoDB for database storage
+- Google Sheets API for data integration

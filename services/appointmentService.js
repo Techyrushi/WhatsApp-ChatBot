@@ -1,5 +1,7 @@
 // services/appointmentService.js
 const mongoose = require('mongoose');
+const WhatsAppService = require('./whatsappService');
+const GoogleSheetsService = require('./googleSheetsService');
 
 // Define Appointment Schema
 const appointmentSchema = new mongoose.Schema({
@@ -16,6 +18,10 @@ const appointmentSchema = new mongoose.Schema({
 const Appointment = mongoose.models.Appointment || mongoose.model('Appointment', appointmentSchema);
 
 class AppointmentService {
+  constructor() {
+    this.whatsappService = new WhatsAppService();
+    this.googleSheetsService = new GoogleSheetsService();
+  }
 
   async createAppointment(appointmentData) {
     try {
@@ -56,17 +62,13 @@ class AppointmentService {
   // Send appointment confirmation to user and notify internal team
   async sendAppointmentConfirmation(appointment) {
     try {
-      // Log confirmation for now (in a real system, this would send actual notifications)
       console.log(`Sending appointment confirmation to user: ${appointment.userName} (${appointment.userPhone})`);
-      console.log(`Appointment ID: ${appointment._id}`);
-      console.log(`Property ID: ${appointment.propertyId}`);
-      console.log(`Date/Time: ${appointment.dateTime}`);
       
-      // In a production system, this would:
-      // 1. Send WhatsApp confirmation to user
-      // 2. Send email notification to sales team
-      // 3. Update CRM system
-      // 4. Schedule reminder notifications
+      // 1. Store data in Google Sheets
+      await this.storeAppointmentInGoogleSheets(appointment);
+      
+      // 2. Send WhatsApp notification to sales team
+      await this.notifySalesTeam(appointment);
       
       return true;
     } catch (error) {
@@ -75,6 +77,145 @@ class AppointmentService {
       // just because notifications failed
       return false;
     }
+  }
+  
+  // Store appointment data in Google Sheets
+  async storeAppointmentInGoogleSheets(appointment) {
+    try {
+      // Populate property details if needed
+      let populatedAppointment = appointment;
+      if (!appointment.propertyId.name) {
+        populatedAppointment = await Appointment.findById(appointment._id).populate('propertyId');
+      }
+      
+      // Prepare data for Google Sheets
+      const appointmentData = {
+        userName: populatedAppointment.userName,
+        userPhone: populatedAppointment.userPhone,
+        dateTime: populatedAppointment.dateTime,
+        purpose: populatedAppointment.propertyId.type || 'Property Visit',
+        language: populatedAppointment.language || 'English',
+        source: 'WhatsApp Bot',
+        status: populatedAppointment.status
+      };
+      
+      // Append data to Google Sheets
+      const result = await this.googleSheetsService.appendAppointmentData(appointmentData);
+      
+      if (result.success) {
+        console.log(`Appointment data stored in Google Sheets (${result.updatedCells} cells updated)`);
+        return true;
+      } else {
+        // Handle different error types
+        switch(result.errorType) {
+          case 'API_NOT_ENABLED':
+            console.error(`Google Sheets API not enabled. Enable it at: ${result.enableUrl}`);
+            break;
+          case 'PERMISSION_DENIED':
+            console.error('Google Sheets permission denied. Check service account permissions.');
+            break;
+          case 'SHEET_NOT_FOUND':
+            console.error('Google Sheet or tab not found. Check spreadsheet ID and sheet name.');
+            break;
+          case 'CONFIG_ERROR':
+            console.error('Google Sheets configuration error:', result.error?.message || 'Unknown config error');
+            break;
+          default:
+            console.error('Failed to store appointment data in Google Sheets:', result.error?.message || 'Unknown error');
+        }
+        
+        // Log the appointment data locally as a backup
+        this.logAppointmentLocally(appointmentData);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error storing appointment in Google Sheets:', error);
+      // Log the appointment data locally as a backup
+      this.logAppointmentLocally(appointment);
+      return false;
+    }
+  }
+  
+  // Backup method to log appointment data locally when Google Sheets fails
+  logAppointmentLocally(appointmentData) {
+    try {
+      const logEntry = {
+        timestamp: new Date().toISOString(),
+        appointmentId: appointmentData._id || 'Unknown',
+        userName: appointmentData.userName || 'Unknown',
+        userPhone: appointmentData.userPhone || 'Unknown',
+        dateTime: appointmentData.dateTime ? new Date(appointmentData.dateTime).toISOString() : 'Unknown',
+        status: appointmentData.status || 'Unknown'
+      };
+      
+      console.log('APPOINTMENT_DATA_BACKUP:', JSON.stringify(logEntry));
+      // In a production environment, you might want to write this to a local file
+      // or a backup database to ensure the data is not lost
+    } catch (error) {
+      console.error('Error logging appointment data locally:', error);
+    }
+  }
+  
+  // Send WhatsApp notification to sales team
+  async notifySalesTeam(appointment) {
+    try {
+      // Get sales team WhatsApp number from environment variable
+      const salesTeamNumber = `whatsapp:${process.env.SALES_TEAM_WHATSAPP_NUMBER}`;
+      
+      if (!salesTeamNumber) {
+        console.warn('Sales team WhatsApp number not configured. Set SALES_TEAM_WHATSAPP_NUMBER in .env file.');
+        return false;
+      }
+      
+      // Populate property details if needed
+      let propertyInfo = 'Property';
+      try {
+        if (appointment.propertyId) {
+          if (typeof appointment.propertyId === 'object' && appointment.propertyId.type) {
+            propertyInfo = appointment.propertyId.type;
+          } else if (typeof appointment.propertyId === 'string' || appointment.propertyId instanceof mongoose.Types.ObjectId) {
+            const property = await mongoose.model('Property').findById(appointment.propertyId);
+            if (property && property.type) {
+              propertyInfo = property.type;
+            }
+          }
+        }
+      } catch (propertyError) {
+        console.warn('Error fetching property details:', propertyError);
+        // Continue with default property info
+      }
+      
+      // Format date for better readability
+      const appointmentDate = new Date(appointment.dateTime);
+      const formattedDate = `${appointmentDate.getDate()} ${this.getMonthName(appointmentDate.getMonth())} at ${appointmentDate.getHours()}:${String(appointmentDate.getMinutes()).padStart(2, '0')} ${appointmentDate.getHours() >= 12 ? 'PM' : 'AM'}`;
+      
+      // Prepare notification message
+      const message = `New Site Visit Scheduled!\n\nName: ${appointment.userName}\nContact: ${appointment.userPhone}\nVisit: ${formattedDate}\nInterested in: ${propertyInfo}\nSource: WhatsApp Bot (FB/IG)\n\nPlease connect and confirm the visit.\n\n— MALPURE GROUP BOT`;
+      
+      try {
+        // Send WhatsApp notification
+        await this.whatsappService.sendMessage(salesTeamNumber, message);
+        console.log(`Sales team notification sent to ${salesTeamNumber}`);
+        return true;
+      } catch (whatsappError) {
+        console.error('Error sending WhatsApp notification:', whatsappError);
+        // Log the message that would have been sent
+        console.log('WhatsApp notification (not sent):', message);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error in sales team notification process:', error);
+      return false;
+    }
+  }
+  
+  // Helper method to get month name
+  getMonthName(monthIndex) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[monthIndex];
   }
 
   async getAppointment(appointmentId) {

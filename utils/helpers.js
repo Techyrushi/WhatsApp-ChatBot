@@ -237,6 +237,60 @@ class Helpers {
     // In production, you might want to save this to a database
     // or send to a logging service like Winston, etc.
   }
+  
+  // Enhanced error logging with context
+  static logError(error, context = {}, level = 'error') {
+    const errorDetails = {
+      timestamp: new Date().toISOString(),
+      level: level,
+      message: error.message || 'Unknown error',
+      stack: error.stack,
+      code: error.code,
+      context: context
+    };
+    
+    // Log to console with appropriate level
+    if (level === 'warn') {
+      console.warn('WARNING:', JSON.stringify(errorDetails, null, 2));
+    } else if (level === 'info') {
+      console.info('INFO:', JSON.stringify(errorDetails, null, 2));
+    } else {
+      console.error('ERROR:', JSON.stringify(errorDetails, null, 2));
+    }
+    
+    // Return formatted error message for user-facing responses
+    return this.getUserFriendlyErrorMessage(error, context);
+  }
+  
+  // Get user-friendly error message
+  static getUserFriendlyErrorMessage(error, context = {}) {
+    // Default generic message
+    let userMessage = 'Sorry, something went wrong. Please try again later.';
+    
+    // Customize based on error type or context
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      userMessage = 'We are having trouble connecting to our services. Please try again in a few minutes.';
+    } else if (error.message && error.message.includes('validation failed')) {
+      userMessage = 'There was an issue with the information provided. Please check and try again.';
+    } else if (context.feature === 'appointment') {
+      userMessage = 'We couldn\'t schedule your appointment at this time. Please try again or contact our support team.';
+    } else if (context.feature === 'property_search') {
+      userMessage = 'We couldn\'t complete your property search. Please try with different criteria or contact our support team.';
+    }
+    
+    return userMessage;
+  }
+  
+  // Check for inactivity and return appropriate message
+  static checkInactivity(lastActivityTime, inactivityThresholdMinutes = 10) {
+    if (!lastActivityTime) return false;
+    
+    const now = new Date();
+    const lastActivity = new Date(lastActivityTime);
+    const minutesSinceLastActivity = (now - lastActivity) / (1000 * 60);
+    
+    return minutesSinceLastActivity > inactivityThresholdMinutes;
+  }
 
   // Rate limiting helper
   static rateLimitKey(phoneNumber) {
