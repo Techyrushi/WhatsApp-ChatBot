@@ -1019,7 +1019,7 @@ class ConversationService {
         confirmationMessage += `*आपण पुढे काय करू इच्छिता?*\n\n`;
         confirmationMessage += `१. नवीन मालमत्ता शोध सुरू करा\n`;
         confirmationMessage += `२. अपॉइंटमेंट तपशील पहा\n`;
-        confirmationMessage += `३. अपॉइंटमेंट तपशील पहा\n`;
+        confirmationMessage += `३. दस्तऐवज पहा\n`;
         confirmationMessage += `४. संभाषण संपवा\n\n`;
         confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (१-३).`;
       } else {
