@@ -196,7 +196,8 @@ class ConversationService {
       message.toLowerCase() === "hello" ||
       message.toLowerCase() === "नमस्कार" ||
       message.toLowerCase() === "हाय" ||
-      message === "Hi" || message === "Hello"
+      message === "Hi" ||
+      message === "Hello"
     ) {
       conversation.state = "welcome";
       conversation.preferences = {};
@@ -999,8 +1000,8 @@ class ConversationService {
 
         // Add agent details
         confirmationMessage += `*आपला समर्पित एजंट:*\n`;
-        confirmationMessage += `👤 Aditya Malpure\n`;
-        confirmationMessage += `📱 +919403117110\n\n`;
+        confirmationMessage += `👤 आदित्य मालपुरे\n`;
+        confirmationMessage += `📱 +९१९४०३११७११०\n\n`;
 
         // Add special requirements if any
         if (
@@ -1587,7 +1588,8 @@ class ConversationService {
       let documentPath, documentName, displayName, documentUrl;
 
       if (documentType === "brochure") {
-        documentPath = "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
+        documentPath =
+          "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
         documentUrl = "https://surl.li/xmbbzt";
         documentName = "Property_Brochure.pdf";
         displayName =
