@@ -999,8 +999,8 @@ class ConversationService {
 
         // Add agent details
         confirmationMessage += `*आपला समर्पित एजंट:*\n`;
-        confirmationMessage += `👤 Rakesh Sharma\n`;
-        confirmationMessage += `📱 +917875693975\n\n`;
+        confirmationMessage += `👤 Aditya Malpure\n`;
+        confirmationMessage += `📱 +919403117110\n\n`;
 
         // Add special requirements if any
         if (
@@ -1056,8 +1056,8 @@ class ConversationService {
 
         // Add agent details
         confirmationMessage += `*Your Dedicated Agent:*\n`;
-        confirmationMessage += `👤 Rakesh Sharma\n`;
-        confirmationMessage += `📱 +917875693975\n\n`;
+        confirmationMessage += `👤 Aditya Malpure\n`;
+        confirmationMessage += `📱 +919403117110\n\n`;
 
         // Add special requirements if any
         if (
