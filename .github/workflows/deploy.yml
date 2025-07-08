@@ -20,6 +20,7 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
+          source ~/.bashrc
           cd ${{ secrets.PROJECT_PATH }}
           git pull origin main
           npm install --production
