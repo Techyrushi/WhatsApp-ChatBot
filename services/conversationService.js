@@ -205,9 +205,9 @@ class ConversationService {
       message.toLowerCase() === "change language" ||
       message.toLowerCase() === "भाषा बदला"
     ) {
-      conversation.state = "language_selection";
+      conversation.state = "welcome";
       await conversation.save();
-      return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
+      return "Welcome to MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
     }
 
     if (
@@ -1426,9 +1426,9 @@ class ConversationService {
       message.toLowerCase() === "भाषा बदला"
     ) {
       // User wants to change language
-      conversation.state = "language_selection";
+      conversation.state = "welcome";
       await conversation.save();
-      return "Welcome to MALPURE GROUP! 🏠\n\nPlease select your preferred language:\n\n1. English\n2. मराठी (Marathi)\n\nReply with just the number (1-2) to select your language.";
+      return "Welcome to MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
     } else {
       // User wants to end conversation
       if (conversation.language === "marathi") {
@@ -1552,9 +1552,9 @@ class ConversationService {
 
         case "change language":
         case "भाषा बदला":
-          conversation.state = "language_selection";
+          conversation.state = "welcome";
           await conversation.save();
-          return "Welcome to MALPURE GROUP! 🏠\n\nPlease select your preferred language:\n\n1. English\n2. मराठी (Marathi)\n\nReply with just the number (1-2) to select your language.";
+          return "Welcome to MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
 
         case "help":
           return this.getHelpMessage(conversation.state, conversation.language);
