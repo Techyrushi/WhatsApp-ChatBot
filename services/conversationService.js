@@ -92,31 +92,53 @@ class ConversationService {
   async processMessage(sender, message, mediaUrl = null, mediaType = null) {
     try {
       let conversation = await this.getOrCreateConversation(sender);
-
-      // Check for inactivity using the helper utility
       const now = new Date();
       const lastActivityTime = conversation.lastActivityTimestamp || now;
+      const normalizedMessage = message.toLowerCase().trim();
 
-      // If user was inactive but is now responding
-      if (conversation.isInactive) {
-        // If user types "Hi" to resume or any message after inactivity
+      // Handle greetings or start commands
+      const greetings = [
+        "hi",
+        "hello",
+        "नमस्कार",
+        "हाय",
+        "start",
+        "restart",
+        "पुन्हा सुरू करा",
+        "start over",
+        "new search",
+        "main menu",
+        "मुख्य मेनू",
+        "hi, i'm interested in your commercial space. please share the details.",
+        "नमस्कार, मला तुमच्या व्यावसायिक जागेत रस आहे. कृपया तपशील शेअर करा.",
+        "Hi",
+        "Hello",
+      ];
+      if (greetings.includes(normalizedMessage)) {
+        conversation.state = "welcome";
+        conversation.lastActivityTimestamp = now;
         conversation.isInactive = false;
-        if (message.toLowerCase() === "end") {
+        await conversation.save();
+        return this.getWelcomeMessage();
+      }
+
+      // Handle inactivity
+      if (conversation.isInactive) {
+        conversation.isInactive = false;
+        if (normalizedMessage === "end") {
           conversation.state = "welcome";
           conversation.preferences = {};
           await conversation.save();
           return this.getFinalMessage(conversation.language);
         }
-      }
-      // If user has been inactive for more than 10 minutes
-      else if (Helpers.checkInactivity(lastActivityTime)) {
+      } else if (Helpers.checkInactivity(lastActivityTime)) {
         conversation.isInactive = true;
         await conversation.save();
         return this.getInactivityMessage(conversation.language);
       }
 
+      // Process message based on type
       let response;
-
       if (mediaUrl && mediaType) {
         response = await this.handleMediaMessage(
           conversation,
@@ -128,13 +150,13 @@ class ConversationService {
         response = await this.handleConversationState(conversation, message);
       }
 
-      // Update timestamps
+      // Update conversation state
       conversation.lastMessageTimestamp = now;
       conversation.lastActivityTimestamp = now;
       conversation.isInactive = false;
       await conversation.save();
 
-      // Log the interaction
+      // Log interaction
       Helpers.logInteraction(sender, message, response, {
         state: conversation.state,
         language: conversation.language,
@@ -142,10 +164,17 @@ class ConversationService {
 
       return response;
     } catch (error) {
-      // Use enhanced error logging
-      const errorContext = { sender, messageType: mediaUrl ? "media" : "text" };
+      const errorContext = {
+        sender,
+        messageType: mediaUrl ? "media" : "text",
+        message: message,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+      };
       const userFriendlyMessage = Helpers.logError(error, errorContext);
-      return userFriendlyMessage;
+      return (
+        userFriendlyMessage || "Sorry, an error occurred. Please try again."
+      );
     }
   }
 
@@ -283,21 +312,36 @@ class ConversationService {
 
   getWelcomeMessage(language) {
     if (language === "marathi") {
-      return "मालपुरे ग्रुपशी जोडल्याबद्दल धन्यवाद! 🏢\n\nआमच्या प्रीमियम कमर्शियल प्रोजेक्टची माहिती:\n\nप्रोजेक्ट: आशीर्वाद बाय मालपुरे ग्रुप\nस्थान: ठटे नगर, कॉलेज रोड, नाशिक\n✅ RERA नोंदणीकृत | वापरासाठी तयार | NMC पूर्णता प्रमाणपत्र\nपुरेशी पार्किंग | दुकाने फ्रंटेजसह | प्रीमियम ऑफिस युनिट्स\n\n.निवड प्रक्रिया सुरू करण्यासाठी, कृपया आपण फक्त क्रमांक 1️⃣ सह उत्तर द्या.";
+      return "मालपुरे ग्रुपमध्ये आपले स्वागत आहे! 🏢\n\nआमच्या प्रीमियम कमर्शियल प्रोजेक्टची माहिती:\n\nप्रोजेक्ट: आशीर्वाद बाय मालपुरे ग्रुप\nस्थान: ठटे नगर, कॉलेज रोड, नाशिक\n✅ RERA नोंदणीकृत | वापरासाठी तयार | NMC पूर्णता प्रमाणपत्र\nपुरेशी पार्किंग | दुकाने फ्रंटेजसह | प्रीमियम ऑफिस युनिट्स\n\nकृपया तुमची पसंतीची भाषा निवडा:\n\n1️⃣. इंग्रजी\n2️⃣. मराठी (मराठी)\n\nतुमची भाषा निवडण्यासाठी फक्त (1️⃣-2️⃣) क्रमांकासह उत्तर द्या.";
     }
 
-    return "Thank you for connecting with MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nTo get started, Please reply with just the number 1️⃣ to continue.";
+    return "Welcome to MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
   }
 
   async handleWelcomeState(conversation, message) {
-    conversation.state = "property_type";
-    await conversation.save();
-    return this.getPropertyTypeOptionsMessage(conversation.language);
+    message = await this.convertMarathiToArabicNumerals(message);
+
+    if (message && message.match(/^[1-2]$/)) {
+      const languageChoice = parseInt(message);
+
+      if (languageChoice === 1) {
+        conversation.language = "english";
+      } else if (languageChoice === 2) {
+        conversation.language = "marathi";
+      }
+
+      conversation.state = "property_type";
+      await conversation.save();
+      return this.getPropertyTypeOptionsMessage(conversation.language);
+    }
+
+    // If invalid input, show welcome message again
+    return this.getWelcomeMessage();
   }
 
   getPropertyTypeOptionsMessage(language) {
     if (language === "marathi") {
-      return "कृपया आपण स्वारस्य असलेले प्रकार निवडा:\n\n1️⃣. ऑफिस खरेदीमध्ये स्वारस्य\n2️⃣. ऑफिस भाड्याने घेण्यासाठी स्वारस्य\n3️⃣. दुकान भाड्याने घेण्यासाठी स्वारस्य\n\nआपला पर्याय निवडण्यासाठी फक्त क्रमांक (१-३) सह उत्तर द्या.";
+      return "कृपया आपण स्वारस्य असलेले प्रकार निवडा:\n\n1️⃣. ऑफिस खरेदीमध्ये स्वारस्य\n2️⃣. ऑफिस भाड्याने घेण्यासाठी स्वारस्य\n3️⃣. दुकान भाड्याने घेण्यासाठी स्वारस्य\n\nआपला पर्याय निवडण्यासाठी फक्त क्रमांक (1️⃣-3️⃣) सह उत्तर द्या.";
     }
 
     return "Please choose what you're looking for:\n\n1️⃣. Interested in Office Purchase\n2️⃣. Interested in Office Leasing\n3️⃣. Interested in Shop Leasing\n\nReply with just the number (1️⃣-3️⃣) to select your option.";
