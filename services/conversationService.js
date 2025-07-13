@@ -1619,7 +1619,6 @@ class ConversationService {
         return this.getErrorMessage("english", "Missing conversation data");
       }
 
-      // Check if property exists
       if (!conversation.selectedProperty) {
         console.error("No property selected in conversation");
         const errorMsg =
@@ -1629,40 +1628,38 @@ class ConversationService {
         return this.getErrorMessage(conversation.language, errorMsg);
       }
 
-      let documentPath, documentName, displayName, documentUrl;
+      let documentUrl, documentName, displayName;
 
       if (documentType === "brochure") {
-        documentPath =
-          "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
+        // ✅ Use the shortened PDF link for the actual file
         documentUrl = "https://surl.li/xmbbzt";
-        documentName = "Property_Brochure.pdf";
+        documentName = "Property_Brochure_Vertical.pdf";
         displayName =
           conversation.language === "marathi"
-            ? "मालमत्ता ब्रोशर"
-            : "Property Brochure";
+            ? "मालमत्ता ब्रोशर (Vertical)"
+            : "Property Brochure (Vertical)";
       } else if (documentType === "floor_plans") {
-        documentPath = "https://i.ibb.co/23HqKCPg/image-123650291-3.jpg";
-        documentUrl = "https://surl.li/xmbbzt";
+        documentUrl = "https://surl.li/xmbbzt"; // update if you have a separate PDF link
         documentName = "Floor_Plans.pdf";
         displayName =
           conversation.language === "marathi" ? "फ्लोअर प्लॅन" : "Floor Plans";
       } else if (documentType === "images") {
-        // For images, we'll call the sendPropertyImages method instead
         return await this.sendPropertyImages(conversation);
       } else {
         throw new Error("Invalid document type");
       }
 
-      const messageBody =
+      const caption =
         conversation.language === "marathi"
-          ? `📄 ${displayName}\n\nकृपया खालील लिंकवरून दस्तऐवज डाउनलोड करा:\n${documentUrl}`
-          : `📄 ${displayName}\n\nPlease download the document using the link below:\n${documentUrl}`;
+          ? `📄 ${displayName}`
+          : `📄 ${displayName}`;
 
-      // Send message with document
-      const result = await this.whatsappService.sendMessage(
+      // ✅ This call must handle 'document' type
+      const result = await this.whatsappService.sendDocument(
         conversation.userId,
-        messageBody,
-        documentPath
+        caption,
+        documentUrl,
+        documentName
       );
 
       if (!result) {
