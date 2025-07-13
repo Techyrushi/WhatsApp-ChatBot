@@ -1655,7 +1655,7 @@ class ConversationService {
           : `📄 ${displayName}`;
 
       // ✅ This call must handle 'document' type
-      const result = await this.whatsappService.sendDocument(
+      const result = await this.whatsappService.sendMessage(
         conversation.userId,
         caption,
         documentUrl,
