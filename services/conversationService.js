@@ -1628,10 +1628,12 @@ class ConversationService {
         return this.getErrorMessage(conversation.language, errorMsg);
       }
 
-      let documentUrl, documentName, displayName;
+      let documentUrl, documentName, displayName, documentPath;
 
       if (documentType === "brochure") {
         // ✅ Use the shortened PDF link for the actual file
+        documentPath =
+          "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
         documentUrl = "https://surl.li/xmbbzt";
         documentName = "Property_Brochure_Vertical.pdf";
         displayName =
@@ -1639,6 +1641,7 @@ class ConversationService {
             ? "मालमत्ता ब्रोशर (Vertical)"
             : "Property Brochure (Vertical)";
       } else if (documentType === "floor_plans") {
+        documentPath = "https://i.ibb.co/23HqKCPg/image-123650291-3.jpg";
         documentUrl = "https://surl.li/xmbbzt"; // update if you have a separate PDF link
         documentName = "Floor_Plans.pdf";
         displayName =
@@ -1659,6 +1662,7 @@ class ConversationService {
         conversation.userId,
         caption,
         documentUrl,
+        documentPath,
         documentName
       );
 

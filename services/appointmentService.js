@@ -196,9 +196,7 @@ class AppointmentService {
   // Send WhatsApp notification to sales team
   async notifySalesTeam(appointment) {
     try {
-      // Get sales team WhatsApp number from environment variable
       const salesTeamNumber = `whatsapp:${process.env.SALES_TEAM_WHATSAPP_NUMBER}`;
-
       if (!salesTeamNumber) {
         console.warn(
           "Sales team WhatsApp number not configured. Set SALES_TEAM_WHATSAPP_NUMBER in .env file."
@@ -206,59 +204,54 @@ class AppointmentService {
         return false;
       }
 
-      let propertyInfo = appointment;
-      if (!appointment.propertyId.name) {
-        propertyInfo = await Appointment.findById(
-          appointment._id
-        ).populate("propertyId");
-      }
+      // Always get fresh property info
+      const populatedAppointment = await Appointment.findById(appointment._id)
+        .populate("propertyId")
+        .lean();
 
-      try {
-        if (appointment.propertyId) {
-          if (
-            typeof appointment.propertyId === "object" &&
-            appointment.propertyId.type
-          ) {
-            propertyInfo = appointment.propertyId.type;
-          } else if (
-            typeof appointment.propertyId === "string" ||
-            appointment.propertyId instanceof mongoose.Types.ObjectId
-          ) {
-            const property = await mongoose
-              .model("Property")
-              .findById(appointment.propertyId);
-            if (property && property.type) {
-              propertyInfo = `${populatedAppointment.propertyId.title} ${populatedAppointment.propertyId.type} - ${populatedAppointment.propertyId.subType}`;
-            }
-          }
-        }
-      } catch (propertyError) {
-        console.warn("Error fetching property details:", propertyError);
-        // Continue with default property info
-      }
+      const property = populatedAppointment.propertyId;
+      const dateTime = new Date(populatedAppointment.dateTime);
 
-      // Format date for better readability
-      const appointmentDate = appointment.dateTime;
-      const formattedDate = `${appointmentDate.getDate()} ${this.getMonthName(
-        appointmentDate.getMonth()
-      )} at ${appointmentDate.getHours()}:${String(
-        appointmentDate.getMinutes()
-      ).padStart(2, "0")} ${appointmentDate.getHours() >= 12 ? "PM" : "AM"}`;
+      // Format date and time nicely
+      const visitDate = dateTime.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
 
-      // Prepare notification message
-      const message = `New Site Visit Scheduled!\n\nName: ${appointment.userName}\nContact: ${appointment.userPhone}\nVisit: ${formattedDate}\nInterested in: ${propertyInfo}\nSource: WhatsApp Bot (FB/IG)\n\nPlease connect and confirm the visit.\n\n— MALPURE GROUP BOT`;
+      const visitTime = dateTime.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
 
-      try {
-        // Send WhatsApp notification
-        await this.whatsappService.sendMessage(salesTeamNumber, message);
-        console.log(`Sales team notification sent to ${salesTeamNumber}`);
-        return true;
-      } catch (whatsappError) {
-        console.error("Error sending WhatsApp notification:", whatsappError);
-        // Log the message that would have been sent
-        console.log("WhatsApp notification (not sent):", message);
-        return false;
-      }
+      // Build a neat property summary
+      const propertyDetails = `🏢 *${property.title}*
+📍 ${property.location}
+📏 ${property.carpetArea?.value || "-"} ${property.carpetArea?.unit || ""}
+💰 ₹${property.price.toLocaleString()}
+🔑 ${property.forSale ? "For Sale" : property.forLease ? "For Lease" : ""}
+`;
+
+      // Final message in a neat template
+      const message = `🔔 *New Site Visit Scheduled!*
+
+👤 *Name:* ${populatedAppointment.userName}
+📞 *Contact:* ${populatedAppointment.userPhone}
+📅 *Visit:* ${visitDate} at ${visitTime}
+
+${propertyDetails.trim()}
+
+🗒️ *Notes:* ${populatedAppointment.notes || "N/A"}
+📲 *Source:* WhatsApp Bot (FB/IG)
+
+✅ Please connect and confirm the visit.
+
+— MALPURE GROUP BOT`;
+
+      await this.whatsappService.sendMessage(salesTeamNumber, message);
+      console.log(`Sales team notification sent to ${salesTeamNumber}`);
+      return true;
     } catch (error) {
       console.error("Error in sales team notification process:", error);
       return false;
