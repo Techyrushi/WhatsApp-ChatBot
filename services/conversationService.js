@@ -1638,8 +1638,8 @@ class ConversationService {
         documentName = "Property_Brochure_Vertical.pdf";
         displayName =
           conversation.language === "marathi"
-            ? "मालमत्ता ब्रोशर (Vertical)"
-            : "Property Brochure (Vertical)";
+            ? "मालमत्ता ब्रोशर"
+            : "Property Brochure";
       } else if (documentType === "floor_plans") {
         documentPath = "https://i.ibb.co/23HqKCPg/image-123650291-3.jpg";
         documentUrl = "https://surl.li/xmbbzt"; // update if you have a separate PDF link
@@ -1652,10 +1652,11 @@ class ConversationService {
         throw new Error("Invalid document type");
       }
 
-      const messageBody =
-        conversation.language === "marathi"
-          ? `📄 ${displayName}\n\nकृपया खालील लिंकवरून दस्तऐवज डाउनलोड करा:\n${documentUrl}`
-          : `📄 ${displayName}\n\nPlease download the document using the link below:\n${documentUrl}`;
+    const messageBody =
+  conversation.language === "marathi"
+    ? `📄 *${displayName}*\n\nआपला दस्तऐवज तयार आहे! ✨\n\nकृपया खालील लिंकवर क्लिक करून डाउनलोड करा:\n🔗 ${documentUrl}\n\n🙏 धन्यवाद!\n— *MALPURE GROUP*`
+    : `📄 *${displayName}*\n\nYour document is ready! ✨\n\nPlease click the link below to download:\n🔗 ${documentUrl}\n\n🙏 Thank you!\n— *MALPURE GROUP*`;
+
 
       // ✅ This call must handle 'document' type
       const result = await this.whatsappService.sendMessage(
