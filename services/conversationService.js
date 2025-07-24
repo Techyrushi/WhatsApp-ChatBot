@@ -1592,8 +1592,8 @@ class ConversationService {
     if (conversation.language === "marathi") {
       return (
         `कृपया आपल्याला हवा असलेला दस्तऐवज निवडा:\n\n` +
-        `1️⃣. मालमत्ता ब्रोशर (PDF)\n` +
-        `2️⃣. फ्लोअर प्लॅन (PDF)\n` +
+        `1️⃣. मालमत्ता ब्रोशर\n` +
+        `2️⃣. फ्लोअर प्लॅन\n` +
         `3️⃣. मालमत्ता चित्रे\n` +
         `4️⃣. काहीही नको\n\n` +
         `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣-4️⃣).`
@@ -1602,8 +1602,8 @@ class ConversationService {
 
     return (
       `Please select which document you would like to receive:\n\n` +
-      `1️⃣. Property Brochure (PDF)\n` +
-      `2️⃣. Floor Plans (PDF)\n` +
+      `1️⃣. Property Brochure\n` +
+      `2️⃣. Floor Plans\n` +
       `3️⃣. Property Images\n` +
       `4️⃣. None\n\n` +
       `Reply with the number of your choice (1️⃣-4️⃣).`
@@ -1652,18 +1652,16 @@ class ConversationService {
         throw new Error("Invalid document type");
       }
 
-      const caption =
+      const messageBody =
         conversation.language === "marathi"
-          ? `📄 ${displayName}`
-          : `📄 ${displayName}`;
+          ? `📄 ${displayName}\n\nकृपया खालील लिंकवरून दस्तऐवज डाउनलोड करा:\n${documentUrl}`
+          : `📄 ${displayName}\n\nPlease download the document using the link below:\n${documentUrl}`;
 
       // ✅ This call must handle 'document' type
       const result = await this.whatsappService.sendMessage(
         conversation.userId,
-        caption,
-        documentUrl,
-        documentPath,
-        documentName
+        messageBody,
+        documentPath
       );
 
       if (!result) {
