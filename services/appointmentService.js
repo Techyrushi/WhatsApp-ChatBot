@@ -48,7 +48,7 @@ class AppointmentService {
         throw new Error("User information is incomplete");
       }
 
-      if (!appointmentData.dateTime) {
+      if (!appointmentData.preferredTimeText) {
         throw new Error("Appointment date and time are required");
       }
 
@@ -110,12 +110,12 @@ class AppointmentService {
       const appointmentData = {
         userName: populatedAppointment.userName,
         userPhone: populatedAppointment.userPhone,
-        dateTime: populatedAppointment.dateTime,
-        preferredTimeText:
-          populatedAppointment.preferredTimeText ||
-          (populatedAppointment.dateTime
-            ? populatedAppointment.dateTime.toLocaleString()
-            : "Not specified"),
+        dateTime: populatedAppointment.preferredTimeText,
+        // preferredTimeText:
+        //   populatedAppointment.preferredTimeText ||
+        //   (populatedAppointment.dateTime
+        //     ? populatedAppointment.dateTime.toLocaleString()
+        //     : "Not specified"),
         purpose: populatedAppointment.propertyId
           ? `${populatedAppointment.propertyId.title} ${populatedAppointment.propertyId.type} - ${populatedAppointment.propertyId.subType}`
           : "Property Visit",
@@ -185,10 +185,9 @@ class AppointmentService {
         appointmentId: appointmentData._id || "Unknown",
         userName: appointmentData.userName || "Unknown",
         userPhone: appointmentData.userPhone || "Unknown",
-        dateTime: appointmentData.dateTime
-          ? new Date(appointmentData.dateTime).toISOString()
+        preferredTimeText: appointmentData.preferredTimeText
+          ? appointmentData.preferredTimeText
           : "Unknown",
-        preferredTimeText: appointmentData.preferredTimeText || "Not specified",
         status: appointmentData.status || "Unknown",
       };
 

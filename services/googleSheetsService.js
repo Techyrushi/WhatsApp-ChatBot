@@ -69,7 +69,7 @@ class GoogleSheetsService {
         [
           appointmentData.userName || '',
           appointmentData.userPhone || '',
-          formattedDate,
+          appointmentData.preferredTimeText || '',
           appointmentData.purpose || '',
           appointmentData.language || 'English',
           appointmentData.source || 'WhatsApp Bot',
