@@ -62,6 +62,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(),
+      preferredTimeText: 'Tomorrow at 2 PM',
       status: 'scheduled',
       userPhone: user.phone,
       userName: user.name
@@ -102,6 +103,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(),
+      preferredTimeText: 'Tomorrow at 2 PM',
       status: 'scheduled',
       userPhone: user.phone,
       userName: user.name
@@ -183,6 +185,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(),
+      preferredTimeText: 'Today at 3 PM',
       status: 'scheduled',
       userPhone: user.phone,
       userName: user.name
@@ -192,6 +195,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+      preferredTimeText: 'Tomorrow at 2 PM',
       status: 'scheduled',
       userPhone: user.phone,
       userName: user.name
@@ -236,6 +240,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user1._id,
       dateTime: new Date(),
+      preferredTimeText: 'Today at 4 PM',
       status: 'scheduled',
       userPhone: user1.phone,
       userName: user1.name
@@ -245,6 +250,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user2._id,
       dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+      preferredTimeText: 'Tomorrow at 5 PM',
       status: 'scheduled',
       userPhone: user2.phone,
       userName: user2.name
@@ -286,6 +292,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(),
+      preferredTimeText: 'Today at 6 PM',
       status: 'scheduled',
       userPhone: user.phone,
       userName: user.name
@@ -295,6 +302,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+      preferredTimeText: 'Tomorrow at 1 PM',
       status: 'confirmed',
       userPhone: user.phone,
       userName: user.name
@@ -304,6 +312,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
+      preferredTimeText: 'Yesterday at 3 PM',
       status: 'completed',
       userPhone: user.phone,
       userName: user.name
@@ -348,6 +357,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
+      preferredTimeText: 'Yesterday at 2 PM',
       status: 'completed',
       userPhone: user.phone,
       userName: user.name
@@ -357,6 +367,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+      preferredTimeText: 'Tomorrow at 4 PM',
       status: 'scheduled',
       userPhone: user.phone,
       userName: user.name
@@ -366,6 +377,7 @@ describe('AppointmentService', () => {
       propertyId: property._id,
       userId: user._id,
       dateTime: new Date(Date.now() + 48 * 60 * 60 * 1000), // Day after tomorrow
+      preferredTimeText: 'Day after tomorrow at 11 AM',
       status: 'confirmed',
       userPhone: user.phone,
       userName: user.name

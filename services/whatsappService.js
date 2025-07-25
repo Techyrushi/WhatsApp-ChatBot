@@ -116,10 +116,13 @@ class WhatsAppService {
     },
 
     confirmation: (appointmentData, appointmentId) => {
+      // Use preferredTimeText if available, otherwise fall back to preferredDateTime
+      const displayDateTime = appointmentData.preferredTimeText || appointmentData.preferredDateTime;
+      
       return `✅ *Viewing Scheduled Successfully!*\n\n` +
         `📋 *Appointment Details:*\n` +
         `🏠 Property: ${appointmentData.propertyTitle}\n` +
-        `📅 Date/Time: ${appointmentData.preferredDateTime}\n` +
+        `📅 Date/Time: ${displayDateTime}\n` +
         `👤 Name: ${appointmentData.customerName}\n` +
         `📧 Email: ${appointmentData.customerEmail}\n` +
         `📱 Phone: ${appointmentData.customerPhone}\n\n` +

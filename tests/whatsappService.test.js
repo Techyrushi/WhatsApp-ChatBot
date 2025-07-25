@@ -192,7 +192,8 @@ describe('WhatsAppService', () => {
     };
     const userInfo = {
       name: 'John Doe',
-      preferredTime: 'Tomorrow at 2 PM'
+      preferredTime: new Date(),
+      preferredTimeText: 'Tomorrow at 2 PM'
     };
     
     const result = await WhatsAppService.sendAppointmentConfirmation(to, property, userInfo);

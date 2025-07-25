@@ -49,7 +49,8 @@ describe('AIService', () => {
           choices: [{ message: { content: JSON.stringify({
             name: 'John Doe',
             phone: '+1234567890',
-            preferredTime: 'Tomorrow at 2 PM'
+            preferredTime: new Date().toISOString(),
+            preferredTimeText: 'Tomorrow at 2 PM'
           }) } }]
         });
       } else if (prompt.includes('identify the user intent')) {
@@ -141,7 +142,8 @@ describe('AIService', () => {
     expect(userInfo).toEqual({
       name: 'John Doe',
       phone: '+1234567890',
-      preferredTime: 'Tomorrow at 2 PM'
+      preferredTime: expect.any(String), // ISO string from Date
+      preferredTimeText: 'Tomorrow at 2 PM'
     });
   });
   

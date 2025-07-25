@@ -54,7 +54,8 @@ beforeEach(async () => {
   AIService.prototype.extractUserInfo = jest.fn().mockResolvedValue({
     name: 'John Doe',
     phone: '+1234567890',
-    preferredTime: 'Tomorrow at 2 PM'
+    preferredTime: new Date(),
+    preferredTimeText: 'Tomorrow at 2 PM'
   });
   
   AppointmentService.createAppointment = jest.fn().mockResolvedValue({
@@ -281,7 +282,8 @@ describe('ConversationService', () => {
     expect(conversation.userInfo).toEqual({
       name: 'John Doe',
       phone: '+1234567890',
-      preferredTime: 'Tomorrow at 2 PM'
+      preferredTime: expect.any(Date),
+      preferredTimeText: 'Tomorrow at 2 PM'
     });
   });
   

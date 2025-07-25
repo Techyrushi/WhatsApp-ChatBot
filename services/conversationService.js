@@ -40,6 +40,7 @@ const conversationSchema = new mongoose.Schema(
       name: { type: String },
       phone: { type: String },
       preferredTime: { type: Date },
+      preferredTimeText: { type: String }, // Store the original text input for date/time
       specialRequirements: { type: String },
       awaitingSpecialRequirements: { type: Boolean, default: false },
     },
@@ -113,6 +114,7 @@ class ConversationService {
         "नमस्कार, मला तुमच्या व्यावसायिक जागेत रस आहे. कृपया तपशील शेअर करा.",
         "Hi",
         "Hello",
+        "end",
       ];
       if (greetings.includes(normalizedMessage)) {
         conversation.state = "welcome";
@@ -341,7 +343,7 @@ class ConversationService {
 
   getPropertyTypeOptionsMessage(language) {
     if (language === "marathi") {
-      return "कृपया आपण स्वारस्य असलेले प्रकार निवडा:\n\n1️⃣. ऑफिस खरेदीमध्ये स्वारस्य\n2️⃣. ऑफिस भाड्याने घेण्यासाठी स्वारस्य\n3️⃣. दुकान भाड्याने घेण्यासाठी स्वारस्य\n\nआपला पर्याय निवडण्यासाठी फक्त क्रमांक (1️⃣-3️⃣) सह उत्तर द्या.";
+      return "कृपया आपणास रुची असलेले पर्याय निवडा:\n\n1️⃣. ऑफिस खरेदीमध्ये रुची\n2️⃣. ऑफिस भाड्याने घेण्यात रुची\n3️⃣. दुकान भाड्याने घेण्यात रुची\n\nआपला पर्याय निवडण्यासाठी फक्त क्रमांक (1️⃣-3️⃣) सह उत्तर द्या.";
     }
 
     return "Please choose what you're looking for:\n\n1️⃣. Interested in Office Purchase\n2️⃣. Interested in Office Leasing\n3️⃣. Interested in Shop Leasing\n\nReply with just the number (1️⃣-3️⃣) to select your option.";
@@ -404,7 +406,7 @@ class ConversationService {
 
       // Find matching properties
       const properties = await Property.find(query)
-        .sort({ isPromoted: -1, price: 1 })
+        .sort({ isPromoted: -1 })
         .limit(5);
 
       console.log(`Found ${properties.length} matching properties`);
@@ -470,9 +472,10 @@ class ConversationService {
     ) {
       // Invalid property selection
       if (conversation.language === "marathi") {
-        return `कृपया वैध मालमत्ता क्रमांक निवडा (1-${conversation.matchedProperties.length}).`;
+        return `कृपया वैध मालमत्ता क्रमांक निवडा (1-${conversation.matchedProperties.length}).\n\nजर योग्य क्रमांक नसेल, तर 'restart' लिहा आणि संभाषण पुन्हा सुरू करा किंवा मुख्य मेन्यूवर जा.`;
       }
-      return `Please select a valid property number (1-${conversation.matchedProperties.length}).`;
+
+      return `Please select a valid property number (1-${conversation.matchedProperties.length}).\n\nIf you don’t have a valid number, type 'restart' to start the conversation again or return to the main menu.`;
     }
 
     // Get selected property
@@ -548,9 +551,16 @@ class ConversationService {
     } else {
       // Invalid choice
       if (conversation.language === "marathi") {
-        return "कृपया वैध पर्याय निवडा (१-२).";
+        return (
+          `कृपया वैध पर्याय निवडा (1️⃣-2️⃣).\n\n` +
+          `जर योग्य पर्याय नसेल, तर 'restart' लिहा आणि संभाषण पुन्हा सुरू करा.`
+        );
       }
-      return "Please select a valid option (1️⃣-2️⃣).";
+
+      return (
+        `Please select a valid option (1️⃣-2️⃣).\n\n` +
+        `If you don’t have a valid option, type 'restart' to start the conversation again.`
+      );
     }
   }
 
@@ -564,11 +574,18 @@ class ConversationService {
       // If we don't have name yet
       if (!userInfo.name) {
         // Validate name is not empty
-        if (!message || message.trim().length < 2) {
+        if (!message || message.trim().length < 3) {
           if (conversation.language === "marathi") {
-            return "कृपया वैध नाव प्रदान करा (किमान 2 अक्षरे).";
+            return (
+              `📝 कृपया वैध नाव लिहा (किमान ३ अक्षरे आवश्यक).\n\n` +
+              `उदा. *राजेश*, *सुरभी*`
+            );
           }
-          return "Please provide a valid name (minimum 2 characters).";
+
+          return (
+            `📝 Please enter a valid name (minimum 3 characters).\n\n` +
+            `E.g. *Rajesh*, *Surabhi*`
+          );
         }
 
         // Save name
@@ -608,9 +625,16 @@ class ConversationService {
         if (!phoneNumber) {
           // Invalid phone number
           if (conversation.language === "marathi") {
-            return "कृपया वैध 10-अंकी फोन नंबर प्रदान करा (उदा. ९८७६५४३२१० किंवा 9876543210).";
+            return (
+              `📞 कृपया वैध १०-अंकी मोबाइल नंबर लिहा.\n\n` +
+              `उदा. *९८७६५४३२१०* किंवा *9876543210*`
+            );
           }
-          return "Please provide a valid 10-digit phone number (e.g. ९८७६५४३२१० or 9876543210).";
+
+          return (
+            `📞 Please enter a valid 10-digit mobile number.\n\n` +
+            `E.g. *९८७६५४३२१०* or *9876543210*`
+          );
         }
 
         // Validate phone number format
@@ -627,9 +651,10 @@ class ConversationService {
 
         // Ask for preferred time
         if (conversation.language === "marathi") {
-          return 'धन्यवाद! कृपया आपली पसंतीची भेटीची तारीख आणि वेळ प्रदान करा (उदा. "Tomorrow at 2 PM" किंवा "Saturday at 11 AM").';
+          return '🙏 धन्यवाद! आपल्या भेटीचे वेळापत्रक ठरवण्यासाठी कृपया खालीलप्रमाणे तारीख आणि वेळ पाठवा:\nउदा. "01/08/2025 at 11 AM" किंवा "01/08/2025 at 2 PM".';
         }
-        return 'Thank you! Please provide your preferred date and time for the visit (e.g., "Tomorrow at 2 PM" or "Saturday at 11 AM").';
+
+        return '🙏 Thank you! To schedule your visit, please share your preferred date and time in the following format:\nFor example: "01/08/2025 at 11 AM" or "01/08/2025 at 2 PM".';
       } catch (error) {
         console.error("Error in handleCollectInfoState (phone):", error);
         return this.getErrorMessage(conversation.language);
@@ -638,180 +663,73 @@ class ConversationService {
 
     // If we have name and phone but no preferred time
     if (!userInfo.preferredTime) {
-      // Define these variables outside the try-catch blocks to make them accessible throughout the method
-      let extractedDate;
-      let extractedTime;
+      // Simply store the user's text input as the preferred time
+      // No validation or parsing needed
 
-      try {
-        // Extract date and time from user message
-        const Helpers = require("../utils/helpers");
-        extractedDate = Helpers.extractDate(message);
-        extractedTime = Helpers.extractTime(message);
-
-        // If user didn't provide date or time, ask again
-        if (!extractedDate && !extractedTime) {
-          if (conversation.language === "marathi") {
-            return 'कृपया भेटीसाठी तारीख आणि वेळ स्पष्टपणे नमूद करा (उदा. "Tomorrow at 2 PM" किंवा "Saturday at 11 AM").';
-          }
-          return 'Please specify a clear date and time for your visit (e.g., "Tomorrow at 2 PM" or "Saturday at 11 AM").';
-        }
-
-        if (!extractedDate) {
-          if (conversation.language === "marathi") {
-            return 'कृपया भेटीसाठी तारीख स्पष्टपणे नमूद करा (उदा. "Tomorrow" किंवा "Saturday").';
-          }
-          return 'Please specify a clear date for your visit (e.g., "Tomorrow" or "Saturday").';
-        }
-
-        if (!extractedTime) {
-          if (conversation.language === "marathi") {
-            return 'कृपया भेटीसाठी वेळ स्पष्टपणे नमूद करा (उदा. "2 PM" किंवा "11 AM").';
-          }
-          return 'Please specify a clear time for your visit (e.g., "2 PM" or "11 AM").';
-        }
-      } catch (error) {
-        console.error(
-          "Error in handleCollectInfoState (date/time extraction):",
-          error
-        );
-        return this.getErrorMessage(conversation.language);
-      }
-
-      // Define these variables outside the try-catch block to make them accessible throughout the method
-      let preferredDate = new Date();
-      let validDate = false;
-      let validTime = false;
-
-      try {
-        // Handle common date patterns
-        if (extractedDate.toLowerCase().includes("tomorrow")) {
-          preferredDate.setDate(preferredDate.getDate() + 1);
-          validDate = true;
-        } else if (extractedDate.toLowerCase().includes("today")) {
-          // Today is already set
-          validDate = true;
-        } else if (extractedDate.toLowerCase().includes("next week")) {
-          preferredDate.setDate(preferredDate.getDate() + 7);
-          validDate = true;
-        } else if (
-          extractedDate
-            .toLowerCase()
-            .match(
-              /(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i
-            )
-        ) {
-          try {
-            // Simple weekday handling - in a real app, use a more robust solution
-            const weekdays = [
-              "sunday",
-              "monday",
-              "tuesday",
-              "wednesday",
-              "thursday",
-              "friday",
-              "saturday",
-            ];
-            const today = preferredDate.getDay();
-            const targetDay = weekdays.indexOf(
-              extractedDate
-                .toLowerCase()
-                .match(
-                  /(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i
-                )[0]
-            );
-
-            if (targetDay !== -1) {
-              let daysToAdd = targetDay - today;
-              if (daysToAdd <= 0) daysToAdd += 7; // Next week if day has passed
-              preferredDate.setDate(preferredDate.getDate() + daysToAdd);
-              validDate = true;
-            }
-          } catch (error) {
-            console.error("Error parsing weekday:", error);
-            // Will be handled by the validDate check below
-          }
-        }
-
-        // Handle time patterns
-        if (extractedTime) {
-          try {
-            const hourMatch = extractedTime.match(/(\d{1,2})/);
-            if (hourMatch) {
-              let hour = parseInt(hourMatch[0]);
-
-              // Validate hour is within range
-              if (hour >= 0 && hour <= 23) {
-                // Handle AM/PM
-                if (extractedTime.toLowerCase().includes("pm") && hour < 12) {
-                  hour += 12;
-                } else if (
-                  extractedTime.toLowerCase().includes("am") &&
-                  hour === 12
-                ) {
-                  hour = 0;
-                }
-
-                // Set the hour
-                preferredDate.setHours(hour);
-
-                // Handle minutes if present
-                const minuteMatch = extractedTime.match(/:([0-5][0-9])/);
-                if (minuteMatch) {
-                  preferredDate.setMinutes(parseInt(minuteMatch[1]));
-                } else {
-                  preferredDate.setMinutes(0);
-                }
-
-                // Check if time is during business hours (9 AM to 6 PM)
-                if (hour >= 9 && hour <= 18) {
-                  validTime = true;
-                }
-              }
-            }
-          } catch (error) {
-            console.error("Error parsing time:", error);
-            // Will be handled by the validTime check below
-          }
-        }
-
-        // If date or time is invalid, ask user to provide valid information
-        if (!validDate) {
-          if (conversation.language === "marathi") {
-            return 'कृपया वैध तारीख प्रदान करा (उदा. "Tomorrow" किंवा "Saturday").';
-          }
-          return 'Please provide a valid date (e.g., "Tomorrow" or "Saturday").';
-        }
-
-        if (!validTime) {
-          if (conversation.language === "marathi") {
-            return "कृपया व्यवसाय तासांदरम्यान वेळ प्रदान करा (सकाळी 9 ते संध्याकाळी 6).";
-          }
-          return "Please provide a time during business hours (9 AM to 6 PM).";
-        }
-      } catch (error) {
-        console.error("Error parsing date and time:", error);
+      // Check if the message is empty
+      if (!message || message.trim() === "") {
         if (conversation.language === "marathi") {
-          return 'कृपया वैध तारीख आणि वेळ प्रदान करा (उदा. "Tomorrow at 2 PM").';
+          return "कृपया भेटीसाठी तारीख आणि वेळ प्रदान करा.";
         }
-        return 'Please provide a valid date and time (e.g., "Tomorrow at 2 PM").';
+        return "Please provide a date and time for your visit.";
       }
 
-      // Format the time for display
-      const options = {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-      };
-      const formattedTime = preferredDate.toLocaleDateString(
-        conversation.language === "marathi" ? "mr-IN" : "en-US",
-        options
-      );
+      // Store the raw text input as preferredTime
+      // Create a Date object for compatibility with the rest of the code
+      const preferredDate = new Date();
 
-      // Save preferred time
-      conversation.userInfo = { ...userInfo, preferredTime: preferredDate };
+      // Parse the user's input to extract date information
+      const userInput = message.trim();
+      let formattedPreferredTime = userInput;
+
+      // Check if the input contains a date in format like DD/MM/YYYY
+      const dateRegex = /(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/;
+      const match = userInput.match(dateRegex);
+
+      if (match) {
+        try {
+          // Extract date components
+          const day = parseInt(match[1]);
+          const month = parseInt(match[2]) - 1; // JavaScript months are 0-indexed
+          const year = parseInt(match[3]);
+
+          // Create a date object to get the day of week
+          const date = new Date(year, month, day);
+
+          // Get day of week
+          const daysOfWeek = [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ];
+          const dayOfWeek = daysOfWeek[date.getDay()];
+
+          // Format the time text to include day of week
+          formattedPreferredTime = userInput.replace(
+            match[0],
+            `${dayOfWeek} ${match[0]}`
+          );
+        } catch (error) {
+          console.error("Error formatting date with day of week:", error);
+          // If there's an error, just use the original input
+          formattedPreferredTime = userInput;
+        }
+      }
+
+      // Save the formatted text input and keep the Date object for compatibility
+      conversation.userInfo = {
+        ...userInfo,
+        preferredTime: preferredDate,
+        preferredTimeText: formattedPreferredTime, // Store the formatted text input with day of week
+      };
       await conversation.save();
+
+      // Use the stored text input for display instead of formatting the Date object
+      const formattedTime = conversation.userInfo.preferredTimeText;
 
       // Ask for special requirements
       if (conversation.language === "marathi") {
@@ -820,10 +738,9 @@ class ConversationService {
           `आपल्या भेटीसाठी आपल्याकडे काही विशेष आवश्यकता किंवा प्रश्न आहेत का? उदाहरणार्थ:\n\n` +
           `1️⃣. कोणत्याही विशेष आवश्यकता नाहीत\n` +
           `2️⃣. वित्तपुरवठा पर्यायांबद्दल माहिती हवी आहे\n` +
-          `3️⃣. जवळपासच्या सुविधांमध्ये स्वारस्य आहे\n` +
-          `4️⃣. नूतनीकरण शक्यतांबद्दल चर्चा करू इच्छिता\n` +
-          `5️⃣. इतर (कृपया निर्दिष्ट करा)\n\n` +
-          `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (१-५).`
+          `3️⃣. जवळपासच्या सुविधांमध्ये रुची आहे\n` +
+          `4️⃣. इतर (कृपया निर्दिष्ट करा)\n\n` +
+          `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣-4️⃣).`
         );
       }
 
@@ -833,9 +750,8 @@ class ConversationService {
         `1️⃣. No special requirements\n` +
         `2️⃣. Need information about financing options\n` +
         `3️⃣. Interested in nearby amenities\n` +
-        `4️⃣. Want to discuss renovation possibilities\n` +
-        `5️⃣. Other (please specify)\n\n` +
-        `Reply with the number of your choice (1️⃣-5️⃣).`
+        `4️⃣. Other (please specify)\n\n` +
+        `Reply with the number of your choice (1️⃣-4️⃣).`
       );
     }
 
@@ -855,7 +771,7 @@ class ConversationService {
               specialRequirements = "वित्तपुरवठा पर्यायांबद्दल माहिती हवी आहे";
               break;
             case 3:
-              specialRequirements = "जवळपासच्या सुविधांमध्ये स्वारस्य आहे";
+              specialRequirements = "जवळपासच्या सुविधांमध्ये रुची आहे";
               break;
             case 4:
               specialRequirements = "नूतनीकरण शक्यतांबद्दल चर्चा करू इच्छिता";
@@ -881,9 +797,6 @@ class ConversationService {
               specialRequirements = "Interested in nearby amenities";
               break;
             case 4:
-              specialRequirements = "Wants to discuss renovation possibilities";
-              break;
-            case 5:
               // For 'Other', we'll ask them to specify
               conversation.userInfo = {
                 ...userInfo,
@@ -892,7 +805,7 @@ class ConversationService {
               await conversation.save();
               return `Please briefly describe your specific requirements or questions:`;
             default:
-              return `Please select a valid option (1️⃣-5️⃣).`;
+              return `Please select a valid option (1️⃣-4️⃣).`;
           }
         }
 
@@ -966,18 +879,18 @@ class ConversationService {
         throw new Error("Property not found");
       }
 
-      // Format the date for display
-      const options = {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-      };
+      // Use the stored text input for display
       const formattedTime =
+        conversation.userInfo.preferredTimeText ||
         conversation.userInfo.preferredTime.toLocaleDateString(
           language === "marathi" ? "mr-IN" : "en-US",
-          options
+          {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            hour: "numeric",
+            minute: "numeric",
+          }
         );
 
       // Get agent details
@@ -1002,9 +915,6 @@ class ConversationService {
         // Add property details
         confirmationMessage += `*मालमत्ता तपशील:*\n`;
         confirmationMessage += `📍 ${property.location}\n`;
-        confirmationMessage += `💰 ₹${property.price.toLocaleString(
-          "en-IN"
-        )}\n`;
 
         // Translate property type to Marathi
         let propertyType = "";
@@ -1026,13 +936,7 @@ class ConversationService {
         }
 
         confirmationMessage += `🏢 ${propertyType}\n`;
-        confirmationMessage += `🛏️ ${property.bedrooms} बेडरूम\n`;
-        confirmationMessage += `🚿 ${property.bathrooms} बाथरूम\n`;
-        // Use carpetArea if available, otherwise try builtUpArea, or skip if neither exists
-
-        if (property.carpetArea && property.carpetArea.value) {
-          confirmationMessage += `📏 Carpet Area: ${property.carpetArea.value} sq.ft\n\n`;
-        }
+        confirmationMessage += `🚿 जोडलेले स्वच्छतागृह\n`;
 
         if (property.builtUpArea && property.builtUpArea.value) {
           confirmationMessage += `📐 Built-up Area: ${property.builtUpArea.value} sq.ft\n\n`;
@@ -1042,10 +946,14 @@ class ConversationService {
           confirmationMessage += `🚗 Parking: ${property.parkingSpaces.value} पार्किंग जागा\n\n`;
         }
 
+        if (property.carpetArea && property.carpetArea.value) {
+          confirmationMessage += `📏 Carpet Area: ${property.carpetArea.value} sq.ft\n\n`;
+        }
+
         // Add agent details
         confirmationMessage += `*आपला समर्पित एजंट:*\n`;
         confirmationMessage += `👤 आदित्य मालपुरे\n`;
-        confirmationMessage += `📱 +९१९४०३११७११०\n\n`;
+        confirmationMessage += `📱 +919403117110\n\n`;
 
         // Add special requirements if any
         if (
@@ -1080,23 +988,22 @@ class ConversationService {
         // Add property details
         confirmationMessage += `*Property Details:*\n`;
         confirmationMessage += `📍 ${property.location}\n`;
-        confirmationMessage += `💰 ₹${property.price.toLocaleString(
-          "en-IN"
-        )}\n`;
+
         confirmationMessage += `🏢 ${
           property.type.charAt(0).toUpperCase() + property.type.slice(1)
         }\n`;
+        confirmationMessage += `🚿 Attached Washroom\n`;
         // Use carpetArea if available, otherwise try builtUpArea, or skip if neither exists
-        if (property.carpetArea && property.carpetArea.value) {
-          confirmationMessage += `📏 Carpet Area: ${property.carpetArea.value} sq.ft\n\n`;
-        }
-
         if (property.builtUpArea && property.builtUpArea.value) {
           confirmationMessage += `📐 Built-up Area: ${property.builtUpArea.value} sq.ft\n\n`;
         }
 
         if (property.parkingSpaces && property.parkingSpaces.value) {
           confirmationMessage += `🚗 Parking: ${property.parkingSpaces.value} space(s)\n\n`;
+        }
+
+        if (property.carpetArea && property.carpetArea.value) {
+          confirmationMessage += `📏 Carpet Area: ${property.carpetArea.value} sq.ft\n\n`;
         }
 
         // Add agent details
@@ -1121,7 +1028,7 @@ class ConversationService {
         confirmationMessage += `*What would you like to do next?*\n\n`;
         confirmationMessage += `1️⃣. Start a new property search\n`;
         confirmationMessage += `2️⃣. View appointment details\n`;
-        confirmationMessage += `3️⃣. View documents\n`;
+        confirmationMessage += `3️⃣. View Brochure\n`;
         confirmationMessage += `4️⃣. End conversation\n\n`;
         confirmationMessage += `Reply with the number of your choice (1️⃣-4️⃣).`;
       }
@@ -1195,29 +1102,29 @@ class ConversationService {
         };
       }
 
-      if (!conversation.userInfo.preferredTime) {
-        console.error("Missing preferred time for appointment");
-        return {
-          success: false,
-          error:
-            conversation.language === "marathi"
-              ? "अपॉइंटमेंटसाठी पसंतीचा वेळ गहाळ आहे"
-              : "Missing preferred time for appointment",
-        };
-      }
+      // if (!conversation.userInfo.preferredTime) {
+      //   console.error("Missing preferred time for appointment");
+      //   return {
+      //     success: false,
+      //     error:
+      //       conversation.language === "marathi"
+      //         ? "अपॉइंटमेंटसाठी पसंतीचा वेळ गहाळ आहे"
+      //         : "Missing preferred time for appointment",
+      //   };
+      // }
 
       // Validate that preferred time is in the future
-      const now = new Date();
-      if (conversation.userInfo.preferredTime < now) {
-        console.error("Preferred time is in the past");
-        return {
-          success: false,
-          error:
-            conversation.language === "marathi"
-              ? "अपॉइंटमेंटची वेळ भूतकाळात आहे"
-              : "Appointment time must be in the future",
-        };
-      }
+      // const now = new Date();
+      // if (conversation.userInfo.preferredTime < now) {
+      //   console.error("Preferred time is in the past");
+      //   return {
+      //     success: false,
+      //     error:
+      //       conversation.language === "marathi"
+      //         ? "अपॉइंटमेंटची वेळ भूतकाळात आहे"
+      //         : "Appointment time must be in the future",
+      //   };
+      // }
 
       // Create appointment using appointment service
       const appointment = await this.appointmentService.createAppointment({
@@ -1226,6 +1133,7 @@ class ConversationService {
         userName: conversation.userInfo.name,
         userPhone: conversation.userInfo.phone,
         dateTime: conversation.userInfo.preferredTime,
+        preferredTimeText: conversation.userInfo.preferredTimeText, // Include the original text input
         notes: conversation.userInfo.specialRequirements || "None",
         status: "scheduled",
       });
@@ -1304,7 +1212,7 @@ class ConversationService {
         case "collect_info":
           return "You are providing information for your visit. Please provide the requested information.";
         case "completed":
-          return "Your visit has been scheduled.\n 1️⃣ To start a new search\n 2️⃣ To view appointment details\n 3️⃣ View documents\n 4️⃣ End conversation.";
+          return "Your visit has been scheduled.\n 1️⃣ To start a new search\n 2️⃣ To view appointment details\n 3️⃣ View brochure\n 4️⃣ End conversation.";
         default:
           return 'For help, you can type "restart" at any time or "change language" to switch languages.';
       }
@@ -1357,22 +1265,32 @@ class ConversationService {
       }
 
       // Get the date/time - either from appointment or from conversation
-      const dateTime = appointment
-        ? appointment.dateTime
-        : conversation.userInfo.preferredTime;
+      let formattedTime;
 
-      // Format the date for display
-      const options = {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-      };
-      const formattedTime = dateTime.toLocaleDateString(
-        conversation.language === "marathi" ? "mr-IN" : "en-US",
-        options
-      );
+      if (appointment && appointment.preferredTimeText) {
+        // Use preferredTimeText from appointment if available
+        formattedTime = appointment.preferredTimeText;
+      } else if (conversation.userInfo.preferredTimeText) {
+        // Use preferredTimeText from conversation if available
+        formattedTime = conversation.userInfo.preferredTimeText;
+      } else {
+        // Fallback to formatted date if preferredTimeText is not available
+        const dateTime = appointment
+          ? appointment.dateTime
+          : conversation.userInfo.preferredTime;
+
+        const options = {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "numeric",
+        };
+        formattedTime = dateTime.toLocaleDateString(
+          conversation.language === "marathi" ? "mr-IN" : "en-US",
+          options
+        );
+      }
 
       // Get appointment status if available
       const status = appointment ? appointment.status : "scheduled";
@@ -1391,10 +1309,7 @@ class ConversationService {
           `संदर्भ क्र.: ${conversation.appointmentId || "उपलब्ध नाही"}\n\n` +
           `आम्ही आपल्याला पुढील दस्तऐवज पाठवू:\n` +
           `- मालमत्ता ब्रोशर\n` +
-          `- फ्लोअर प्लॅन\n` +
-          `- स्थान फायदे\n` +
-          `- पेमेंट प्लॅन\n\n` +
-          `हे आपल्याला WhatsApp किंवा ईमेल द्वारे पाठवले जातील. आपल्याला कोणत्या विशिष्ट दस्तऐवजामध्ये सर्वाधिक स्वारस्य आहे?\n\n` +
+          `हे आपल्याला WhatsApp किंवा ईमेल द्वारे पाठवले जातील. आपल्याला कोणत्या विशिष्ट दस्तऐवजामध्ये सर्वाधिक रुची आहे?\n\n` +
           `1️⃣. नवीन मालमत्ता शोध सुरू करा\n` +
           `2️⃣. अपॉइंटमेंट तपशील पहा\n` +
           `3️⃣. संभाषण संपवा\n\n` +
@@ -1411,13 +1326,10 @@ class ConversationService {
         `Reference #: ${conversation.appointmentId || "Not available"}\n\n` +
         `We'll be sending you the following documents:\n` +
         `- Property brochure\n` +
-        `- Floor plans\n` +
-        `- Location advantages\n` +
-        `- Payment plans\n\n` +
         `These will be sent to you via WhatsApp or email. Is there a specific document you're most interested in?\n\n` +
         `1️⃣. Start a new property search\n` +
         `2️⃣. View appointment details\n` +
-        `3️⃣. View documents\n` +
+        `3️⃣. View Brochure\n` +
         `4️. End conversation\n\n` +
         `Reply with the number of your choice.`
       );
@@ -1469,6 +1381,7 @@ class ConversationService {
       if (conversation.documentSelectionPhase) {
         switch (message) {
           case "1": // Property Brochure
+            // First send the property document brochure
             const brochureResult = await this.sendPropertyDocument(
               conversation,
               "brochure"
@@ -1480,9 +1393,13 @@ class ConversationService {
             if (typeof brochureResult === "string") {
               return brochureResult;
             }
+
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
             return this.getFinalMessage(conversation.language);
 
           case "2": // Floor Plans
+            // First send the floor plans document
             const floorPlansResult = await this.sendPropertyDocument(
               conversation,
               "floor_plans"
@@ -1494,9 +1411,15 @@ class ConversationService {
             if (typeof floorPlansResult === "string") {
               return floorPlansResult;
             }
+
+          
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
+           
             return this.getFinalMessage(conversation.language);
 
           case "3": // Images
+            // First send the property images
             const imagesResult = await this.sendPropertyImages(conversation);
             conversation.documentSelectionPhase = false;
             await conversation.save();
@@ -1505,11 +1428,19 @@ class ConversationService {
             if (typeof imagesResult === "string") {
               return imagesResult;
             }
+
+           
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
+            // After successfully sending the images and waiting, return the final message
             return this.getFinalMessage(conversation.language);
 
           case "4": // None
+            // User chose not to receive any document
             conversation.documentSelectionPhase = false;
             await conversation.save();
+
+            // Return the final message
             return this.getFinalMessage(conversation.language);
 
           default:
@@ -1537,9 +1468,24 @@ class ConversationService {
 
         case "3":
           if (conversation.viewingAppointmentDetails) {
-            conversation.documentSelectionPhase = true;
+            // First send the property document brochure
+            const brochureResult = await this.sendPropertyDocument(
+              conversation,
+              "brochure"
+            );
+            conversation.documentSelectionPhase = false;
             await conversation.save();
-            return this.getDocumentOptionsMessage(conversation);
+
+            // If sending document failed, return the error message
+            if (typeof brochureResult === "string") {
+              return brochureResult;
+            }
+
+    
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
+           
+            return this.getFinalMessage(conversation.language);
           } else {
             return "Please view the appointment details first by entering 2.";
           }
@@ -1591,22 +1537,16 @@ class ConversationService {
   getDocumentOptionsMessage(conversation) {
     if (conversation.language === "marathi") {
       return (
-        `कृपया आपल्याला हवा असलेला दस्तऐवज निवडा:\n\n` +
-        `1️⃣. मालमत्ता ब्रोशर\n` +
-        `2️⃣. फ्लोअर प्लॅन\n` +
-        `3️⃣. मालमत्ता चित्रे\n` +
-        `4️⃣. काहीही नको\n\n` +
-        `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣-4️⃣).`
+        `📑 *मालमत्ता दस्तऐवज पर्याय*\n\n` +
+        `कृपया *1️⃣* टाइप करा आणि आपला *मालमत्ता ब्रोशर* मिळवा:\n\n` +
+        `✨ आम्ही तो लगेच पाठवू!`
       );
     }
 
     return (
-      `Please select which document you would like to receive:\n\n` +
-      `1️⃣. Property Brochure\n` +
-      `2️⃣. Floor Plans\n` +
-      `3️⃣. Property Images\n` +
-      `4️⃣. None\n\n` +
-      `Reply with the number of your choice (1️⃣-4️⃣).`
+      `📑 *Property Document Options*\n\n` +
+      `Just type *1️⃣* to receive your *Property Brochure*.\n\n` +
+      `✨ We’ll send it instantly!`
     );
   }
 
@@ -1634,7 +1574,7 @@ class ConversationService {
         // ✅ Use the shortened PDF link for the actual file
         documentPath =
           "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
-        documentUrl = "https://surl.li/xmbbzt";
+        documentUrl = "https://bit.ly/malpuregroup";
         documentName = "Property_Brochure_Vertical.pdf";
         displayName =
           conversation.language === "marathi"
@@ -1652,11 +1592,10 @@ class ConversationService {
         throw new Error("Invalid document type");
       }
 
-    const messageBody =
-  conversation.language === "marathi"
-    ? `📄 *${displayName}*\n\nआपला दस्तऐवज तयार आहे! ✨\n\nकृपया खालील लिंकवर क्लिक करून डाउनलोड करा:\n🔗 ${documentUrl}\n\n🙏 धन्यवाद!\n— *MALPURE GROUP*`
-    : `📄 *${displayName}*\n\nYour document is ready! ✨\n\nPlease click the link below to download:\n🔗 ${documentUrl}\n\n🙏 Thank you!\n— *MALPURE GROUP*`;
-
+      const messageBody =
+        conversation.language === "marathi"
+          ? `📄 *${displayName}*\n\nआपला दस्तऐवज तयार आहे! ✨\n\nकृपया खालील लिंकवर क्लिक करून डाउनलोड करा:\n🔗 ${documentUrl}\n\n🙏 धन्यवाद!\n— *MALPURE GROUP*`
+          : `📄 *${displayName}*\n\nYour document is ready! ✨\n\nPlease click the link below to download:\n🔗 ${documentUrl}\n\n🙏 Thank you!\n— *MALPURE GROUP*`;
 
       // ✅ This call must handle 'document' type
       const result = await this.whatsappService.sendMessage(
@@ -1801,9 +1740,16 @@ class ConversationService {
   // Helper method for unrecognized input message
   getUnrecognizedInputMessage(language) {
     if (language === "marathi") {
-      return "मला ते समजले नाही. कृपया वैध क्रमांक (१, २, ३) सह उत्तर द्या किंवा सुरू ठेवण्यासाठी 'मुख्य मेनू' टाइप करा.";
+      return (
+        `🤔 मला ते समजले नाही.\n\n` +
+        `कृपया वैध क्रमांक लिहा (1️⃣, 2️⃣, 3️⃣) किंवा पुढे जाण्यासाठी *Main Menu* टाइप करा.`
+      );
     }
-    return "I didn't quite understand that. Please reply with a valid number (1️⃣, 2️⃣, 3️⃣) or type 'Main Menu' to continue.";
+
+    return (
+      `🤔 I didn’t get that.\n\n` +
+      `Please reply with a valid number (1️⃣, 2️⃣, 3️⃣) or type *Main Menu* to continue.`
+    );
   }
 
   // Helper method for inactivity message
@@ -1914,19 +1860,24 @@ class ConversationService {
         return this.getErrorMessage(conversation.language, errorMsg);
       }
 
-      // Format date for display
-      const options = {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-      };
-
-      const formattedTime = appointment.dateTime.toLocaleDateString(
-        conversation.language === "marathi" ? "mr-IN" : "en-US",
-        options
-      );
+      // Get formatted time - prefer preferredTimeText if available
+      let formattedTime;
+      if (appointment.preferredTimeText) {
+        formattedTime = appointment.preferredTimeText;
+      } else {
+        // Fallback to formatted date if preferredTimeText is not available
+        const options = {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "numeric",
+        };
+        formattedTime = appointment.dateTime.toLocaleDateString(
+          conversation.language === "marathi" ? "mr-IN" : "en-US",
+          options
+        );
+      }
 
       // Get property details
       const property = appointment.propertyId;
@@ -1988,7 +1939,7 @@ class ConversationService {
         detailsMessage += `*What would you like to do next?*\n\n`;
         detailsMessage += `1️⃣. Start a new property search\n`;
         detailsMessage += `2️⃣. View appointments Details again\n`;
-        detailsMessage += `3️⃣. View documents\n`;
+        detailsMessage += `3️⃣. View Brochure\n`;
         detailsMessage += `4️⃣. End conversation\n\n`;
         detailsMessage += `Reply with the number of your choice (1️⃣, 2️⃣, 3️⃣, 4️⃣).`;
       }

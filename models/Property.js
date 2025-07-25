@@ -16,7 +16,7 @@ const propertySchema = new mongoose.Schema({
   forSale: { type: Boolean, default: false },
   forLease: { type: Boolean, default: false },
   location: { type: String, required: true },
-  price: { type: Number, required: true },
+  // price: { type: Number, required: true },
   carpetArea: {
     value: { type: Number },
     unit: { type: String, default: 'sq.ft' }
@@ -47,7 +47,7 @@ propertySchema.index({ availability: 1 });
 propertySchema.methods.formatForList = function(index) {
   let text = `${index}. ${this.title}\n`;
   text += `📍 ${this.location}\n`;
-  text += `💰 ₹${this.price.toLocaleString('en-IN')}\n`;
+  // text += `💰 ₹${this.price.toLocaleString('en-IN')}\n`;
   
   if (this.carpetArea?.value) {
     text += `📏 ${this.carpetArea.value} ${this.carpetArea.unit} carpet area\n`;
@@ -57,12 +57,9 @@ propertySchema.methods.formatForList = function(index) {
     text += `🚗 ${this.parkingSpaces.fourWheeler} parking space(s)\n`;
   }
   
-  if (this.amenities?.length > 0) {
-    text += `✨ ${this.amenities.slice(0, 3).join(', ')}`;
-    if (this.amenities.length > 3) text += '...';
-    text += '\n';
+  if (this.description?.length > 0) {
+    text += `✨ Description: \n${this.description}\n`;
   }
-  
   return text;
 };
 
@@ -74,8 +71,8 @@ propertySchema.methods.formatDetails = function(language = 'english') {
   text += language === 'marathi' ? `📍 स्थान: ${this.location}\n` : `📍 Location: ${this.location}\n`;
   
   // Price
-  const formattedPrice = this.price.toLocaleString('en-IN');
-  text += language === 'marathi' ? `💰 किंमत: ₹${formattedPrice}\n` : `💰 Price: ₹${formattedPrice}\n`;
+  // const formattedPrice = this.price.toLocaleString('en-IN');
+  // text += language === 'marathi' ? `💰 किंमत: ₹${formattedPrice}\n` : `💰 Price: ₹${formattedPrice}\n`;
   
   // Property type
   const typeLabel = language === 'marathi' ? 'प्रकार' : 'Type';
@@ -108,14 +105,14 @@ propertySchema.methods.formatDetails = function(language = 'english') {
   }
   
   // Amenities
-  if (this.amenities?.length > 0) {
-    const amenitiesLabel = language === 'marathi' ? 'सुविधा' : 'Amenities';
-    text += `✨ ${amenitiesLabel}: ${this.amenities.join(', ')}\n`;
-  }
+  // if (this.description?.length > 0) {
+  //   const amenitiesLabel = language === 'marathi' ? 'विवरण' : 'Description';
+  //   text += `✨ ${amenitiesLabel}: ${this.description}\n`;
+  // }
   
   // Description
   if (this.description) {
-    const descLabel = language === 'marathi' ? '📝 वर्णन' : '📝 Description';
+    const descLabel = language === 'marathi' ? '📝 विवरण' : '📝 Description';
     text += `\n${descLabel}:\n${this.description}\n`;
   }
   

@@ -13,6 +13,7 @@ const appointmentSchema = new mongoose.Schema(
     },
     userId: { type: String, required: true },
     dateTime: { type: Date, required: true },
+    preferredTimeText: { type: String }, // Store the original text input for date/time
     status: {
       type: String,
       enum: ["scheduled", "confirmed", "cancelled", "completed"],
@@ -110,6 +111,11 @@ class AppointmentService {
         userName: populatedAppointment.userName,
         userPhone: populatedAppointment.userPhone,
         dateTime: populatedAppointment.dateTime,
+        preferredTimeText:
+          populatedAppointment.preferredTimeText ||
+          (populatedAppointment.dateTime
+            ? populatedAppointment.dateTime.toLocaleString()
+            : "Not specified"),
         purpose: populatedAppointment.propertyId
           ? `${populatedAppointment.propertyId.title} ${populatedAppointment.propertyId.type} - ${populatedAppointment.propertyId.subType}`
           : "Property Visit",
@@ -182,6 +188,7 @@ class AppointmentService {
         dateTime: appointmentData.dateTime
           ? new Date(appointmentData.dateTime).toISOString()
           : "Unknown",
+        preferredTimeText: appointmentData.preferredTimeText || "Not specified",
         status: appointmentData.status || "Unknown",
       };
 
@@ -213,24 +220,48 @@ class AppointmentService {
       const dateTime = new Date(populatedAppointment.dateTime);
 
       // Format date and time nicely
-      const visitDate = dateTime.toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
+      let formattedDateTime;
 
-      const visitTime = dateTime.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
+      if (populatedAppointment.preferredTimeText) {
+        // Use the preferredTimeText if available
+        formattedDateTime = populatedAppointment.preferredTimeText;
+      } else {
+        // Fall back to formatting the dateTime object
+        const visitDate = dateTime.toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+
+        const visitTime = dateTime.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+        formattedDateTime = `${visitDate} at ${visitTime}`;
+      }
+
+      const builtUpLine = property.builtUpArea?.value
+        ? `📐 ${property.builtUpArea.value} sq.ft\n`
+        : "";
+
+      const parkingLine =
+        property.parkingSpaces?.fourWheeler ||
+        property.parkingSpaces?.twoWheeler
+          ? `🚗 Parking: ${
+              property.parkingSpaces.fourWheeler || 0
+            } Four-Wheeler, ${
+              property.parkingSpaces.twoWheeler || 0
+            } Two-Wheeler\n`
+          : "";
 
       // Build a neat property summary
       const propertyDetails = `🏢 *${property.title}*
-📍 ${property.location}
-📏 ${property.carpetArea?.value || "-"} ${property.carpetArea?.unit || ""}
-💰 ₹${property.price.toLocaleString()}
-🔑 ${property.forSale ? "For Sale" : property.forLease ? "For Lease" : ""}
+  📍 ${property.location}
+ 📏 ${property.carpetArea?.value || "-"} sq.ft
+ 🔑 ${property.forSale ? "For Sale" : property.forLease ? "For Lease" : ""}
+    ${builtUpLine}${parkingLine}
 `;
 
       // Final message in a neat template
@@ -238,16 +269,16 @@ class AppointmentService {
 
 👤 *Name:* ${populatedAppointment.userName}
 📞 *Contact:* ${populatedAppointment.userPhone}
-📅 *Visit:* ${visitDate} at ${visitTime}
+📅 *Visit:* ${formattedDateTime}
 
 ${propertyDetails.trim()}
 
 🗒️ *Notes:* ${populatedAppointment.notes || "N/A"}
-📲 *Source:* WhatsApp Bot (FB/IG)
+📲 *Source:* WhatsApp (FB/IG)
 
 ✅ Please connect and confirm the visit.
 
-— MALPURE GROUP BOT`;
+— MALPURE GROUP`;
 
       await this.whatsappService.sendMessage(salesTeamNumber, message);
       console.log(`Sales team notification sent to ${salesTeamNumber}`);

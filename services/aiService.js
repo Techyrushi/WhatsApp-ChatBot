@@ -235,7 +235,38 @@ Current context:
       });
 
       try {
-        return JSON.parse(completion.choices[0].message.content.trim());
+        const userInfo = JSON.parse(completion.choices[0].message.content.trim());
+        
+        // Format the time with day of week if it contains a date
+        if (userInfo.time) {
+          // Check if the time contains a date in format like DD/MM/YYYY
+          const dateRegex = /(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/;
+          const match = userInfo.time.match(dateRegex);
+          
+          if (match) {
+            try {
+              // Extract date components
+              const day = parseInt(match[1]);
+              const month = parseInt(match[2]) - 1; // JavaScript months are 0-indexed
+              const year = parseInt(match[3]);
+              
+              // Create a date object to get the day of week
+              const date = new Date(year, month, day);
+              
+              // Get day of week
+              const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+              const dayOfWeek = daysOfWeek[date.getDay()];
+              
+              // Format the time text to include day of week
+              userInfo.time = userInfo.time.replace(match[0], `${dayOfWeek} ${match[0]}`);
+            } catch (error) {
+              console.error('Error formatting date with day of week:', error);
+              // If there's an error, just use the original input
+            }
+          }
+        }
+        
+        return userInfo;
       } catch (e) {
         console.error('Error parsing user info JSON:', e);
         return { name: null, phone: null, time: null };
