@@ -651,10 +651,10 @@ class ConversationService {
 
         // Ask for preferred time
         if (conversation.language === "marathi") {
-          return '🙏 धन्यवाद! आपल्या भेटीचे वेळापत्रक ठरवण्यासाठी कृपया खालीलप्रमाणे तारीख आणि वेळ पाठवा:\nउदा. "01/08/2025 at 11 AM" किंवा "01/08/2025 at 2 PM".';
+          return '🙏 धन्यवाद! आपल्या भेटीचे वेळापत्रक ठरवण्यासाठी कृपया खालीलप्रमाणे तारीख आणि वेळ पाठवा:\nउदा. "01/07/2025 at 11 AM" किंवा "01/07/2025 at 5 PM".';
         }
 
-        return '🙏 Thank you! To schedule your visit, please share your preferred date and time in the following format:\nFor example: "01/08/2025 at 11 AM" or "01/08/2025 at 2 PM".';
+        return '🙏 Thank you! To schedule your visit, please share your preferred date and time in the following format:\nFor example: "01/07/2025 at 11 AM" or "01/07/2025 at 5 PM".';
       } catch (error) {
         console.error("Error in handleCollectInfoState (phone):", error);
         return this.getErrorMessage(conversation.language);
