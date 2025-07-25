@@ -84,7 +84,7 @@ app.post('/webhook', async (req, res) => {
       if (req.body && req.body.From) {
         await whatsappService.sendMessage(
           req.body.From, 
-          'Sorry, I encountered an error processing your request. Please try again later.'
+          ''
         );
       }
     } catch (sendError) {

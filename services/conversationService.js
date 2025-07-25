@@ -758,7 +758,7 @@ class ConversationService {
     // If we have name, phone, time but no special requirements
     if (!userInfo.specialRequirements) {
       // Check if this is a valid selection or custom message
-      if (message.match(/^[1-5]$/)) {
+      if (message.match(/^[1-4]$/)) {
         const requirementChoice = parseInt(message.trim());
         let specialRequirements = "";
 
@@ -774,9 +774,6 @@ class ConversationService {
               specialRequirements = "जवळपासच्या सुविधांमध्ये रुची आहे";
               break;
             case 4:
-              specialRequirements = "नूतनीकरण शक्यतांबद्दल चर्चा करू इच्छिता";
-              break;
-            case 5:
               // For 'Other', we'll ask for specifics
               conversation.userInfo = {
                 ...userInfo,
@@ -826,11 +823,14 @@ class ConversationService {
           );
         }
 
-        // Generate confirmation with enhanced details
-        return this.generateEnhancedConfirmation(
+        // Generate confirmation with enhanced details and send brochure
+        await this.generateEnhancedConfirmation(
           conversation,
           conversation.language
         );
+
+        // Return empty response since message is already sent
+        return "";
       } else if (message.length > 0) {
         // User provided custom requirements (after selecting option 5)
         conversation.userInfo = {
@@ -843,17 +843,20 @@ class ConversationService {
         // Create appointment in database
         await this.createAppointment(conversation);
 
-        // Generate confirmation with enhanced details
-        return this.generateEnhancedConfirmation(
+        // Generate confirmation with enhanced details and send brochure
+        await this.generateEnhancedConfirmation(
           conversation,
           conversation.language
         );
+
+        // Return empty response since message is already sent
+        return "";
       } else {
         // Invalid input for special requirements
         if (conversation.language === "marathi") {
-          return `कृपया एक पर्याय (1️⃣-5️⃣) निवडा किंवा आपल्या विशिष्ट आवश्यकता प्रदान करा:`;
+          return `कृपया एक पर्याय (1️⃣-4️⃣) निवडा किंवा आपल्या विशिष्ट आवश्यकता प्रदान करा:`;
         }
-        return `Please select an option (1️⃣-5️⃣) or provide your specific requirements:`;
+        return `Please select an option (1️⃣-4️⃣) or provide your specific requirements:`;
       }
     }
 
@@ -870,7 +873,7 @@ class ConversationService {
     );
   }
 
-  // Generate enhanced confirmation message
+  // Generate enhanced confirmation message and automatically send brochure
   async generateEnhancedConfirmation(conversation, language = "english") {
     try {
       // Get property details
@@ -904,7 +907,7 @@ class ConversationService {
 
       if (language === "marathi") {
         // Marathi confirmation message
-        confirmationMessage = `✅ *मालपुरे ग्रुपसह बुकिंग कन्फर्म झाले!*\n\n`;
+        confirmationMessage = `✅ *मालपुरे ग्रुपसह साइट विझीट कन्फर्म झाले!*\n\n`;
 
         // Add personalized greeting
         confirmationMessage += `प्रिय ${conversation.userInfo.name},\n\n`;
@@ -968,16 +971,18 @@ class ConversationService {
         // Add next steps
         confirmationMessage += `आमचा एजंट तपशील पुष्टी करण्यासाठी लवकरच ${conversation.userInfo.phone} वर संपर्क साधेल.\n\n`;
 
+        // Add brochure notification
+        confirmationMessage += `*आम्ही आपल्याला मालमत्ता ब्रोशर पाठवत आहोत. कृपया थोडा वेळ थांबा.*\n\n`;
+
         // Add what's next options
         confirmationMessage += `*आपण पुढे काय करू इच्छिता?*\n\n`;
         confirmationMessage += `1️⃣. नवीन मालमत्ता शोध सुरू करा\n`;
         confirmationMessage += `2️⃣. अपॉइंटमेंट तपशील पहा\n`;
-        confirmationMessage += `3️⃣. दस्तऐवज पहा\n`;
-        confirmationMessage += `4️⃣. संभाषण संपवा\n\n`;
-        confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣-4️⃣).`;
+        confirmationMessage += `3️⃣. संभाषण संपवा\n\n`;
+        confirmationMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣-3️⃣).`;
       } else {
         // English confirmation message
-        confirmationMessage = `✅ *Booking Confirmed with MALPURE GROUP!*\n\n`;
+        confirmationMessage = `✅ *Site Visit Confirmed with MALPURE GROUP!*\n\n`;
 
         // Add personalized greeting
         confirmationMessage += `Dear ${conversation.userInfo.name},\n\n`;
@@ -1024,16 +1029,31 @@ class ConversationService {
         // Add next steps
         confirmationMessage += `Our agent will contact you at ${conversation.userInfo.phone} shortly to confirm the details.\n\n`;
 
+        // Add brochure notification
+        confirmationMessage += `*We are sending you the property brochure. Please wait a moment.*\n\n`;
+
         // Add what's next options
         confirmationMessage += `*What would you like to do next?*\n\n`;
         confirmationMessage += `1️⃣. Start a new property search\n`;
         confirmationMessage += `2️⃣. View appointment details\n`;
-        confirmationMessage += `3️⃣. View Brochure\n`;
-        confirmationMessage += `4️⃣. End conversation\n\n`;
-        confirmationMessage += `Reply with the number of your choice (1️⃣-4️⃣).`;
+        confirmationMessage += `3️⃣. End conversation\n\n`;
+        confirmationMessage += `Reply with the number of your choice (1️⃣-3️⃣).`;
       }
 
-      return confirmationMessage;
+      // Send the confirmation message first
+      await this.whatsappService.sendMessage(
+        conversation.userId,
+        confirmationMessage
+      );
+
+      // Small delay before sending document
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Automatically send the brochure
+      await this.sendPropertyDocument(conversation, "brochure");
+
+      // Return empty string since we've already sent the message
+      return "";
     } catch (error) {
       console.error("Error generating confirmation:", error);
       if (language === "marathi") {
@@ -1212,7 +1232,7 @@ class ConversationService {
         case "collect_info":
           return "You are providing information for your visit. Please provide the requested information.";
         case "completed":
-          return "Your visit has been scheduled.\n 1️⃣ To start a new search\n 2️⃣ To view appointment details\n 3️⃣ View brochure\n 4️⃣ End conversation.";
+          return "Your visit has been scheduled.\n 1️⃣ To start a new search\n 2️⃣ To view appointment details\n 3️⃣ End conversation.";
         default:
           return 'For help, you can type "restart" at any time or "change language" to switch languages.';
       }
@@ -1329,8 +1349,7 @@ class ConversationService {
         `These will be sent to you via WhatsApp or email. Is there a specific document you're most interested in?\n\n` +
         `1️⃣. Start a new property search\n` +
         `2️⃣. View appointment details\n` +
-        `3️⃣. View Brochure\n` +
-        `4️. End conversation\n\n` +
+        `3️⃣. End conversation\n\n` +
         `Reply with the number of your choice.`
       );
     } else if (
@@ -1483,34 +1502,7 @@ class ConversationService {
           await conversation.save();
           return await this.getAppointmentDetails(conversation);
 
-        case "3":
-          if (conversation.viewingAppointmentDetails) {
-            // First send the property document brochure
-            const brochureResult = await this.sendPropertyDocument(
-              conversation,
-              "brochure"
-            );
-            conversation.documentSelectionPhase = false;
-            await conversation.save();
-
-            // If sending document failed, return the error message
-            if (typeof brochureResult === "string") {
-              return brochureResult;
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-
-            const finalMessage = this.getFinalMessage(conversation.language);
-            await this.whatsappService.sendMessage(
-              conversation.userId,
-              finalMessage
-            );
-            return "🙏🏻🙏🏻🙏🏻";
-          } else {
-            return "Please view the appointment details first by entering 2.";
-          }
-
-        case "4": // End conversation
+        case "3": // End conversation
           conversation.viewingAppointmentDetails = false;
           conversation.documentSelectionPhase = false;
           await conversation.save();
@@ -1591,17 +1583,16 @@ class ConversationService {
       let documentUrl, documentName, displayName, documentPath;
 
       if (documentType === "brochure") {
-        // ✅ Use the shortened PDF link for the actual file
-        documentPath =
-          "https://i.ibb.co/nMrZnqXH/Malpure-Group-cover-vertical-1.jpg";
-        documentUrl = "https://bit.ly/malpuregroup";
-        documentName = "Property_Brochure_Vertical.pdf";
+        // Use the local PDF file
+        documentPath = "https://i.ibb.co/zWBLbZMx/image-123650291-2.jpg";
+        documentUrl = "https://tinyurl.com/malpuregroup";
+        documentName = "Property_Brochure.pdf";
         displayName =
           conversation.language === "marathi"
             ? "मालमत्ता ब्रोशर"
             : "Property Brochure";
       } else if (documentType === "floor_plans") {
-        documentPath = "https://i.ibb.co/23HqKCPg/image-123650291-3.jpg";
+        documentPath = "https://i.ibb.co/23HqKCP/image-123650291-3.jpg";
         documentUrl = "https://surl.li/xmbbzt"; // update if you have a separate PDF link
         documentName = "Floor_Plans.pdf";
         displayName =
@@ -1617,18 +1608,30 @@ class ConversationService {
           ? `📄 *${displayName}*\n\nआपला दस्तऐवज तयार आहे! ✨\n\nकृपया खालील लिंकवर क्लिक करून डाउनलोड करा:\n🔗 ${documentUrl}\n\n— *MALPURE GROUP*`
           : `📄 *${displayName}*\n\nYour document is ready! ✨\n\nPlease click the link below to download:\n🔗 ${documentUrl}\n\n— *MALPURE GROUP*`;
 
-      // ✅ This call must handle 'document' type
-      const result = await this.whatsappService.sendMessage(
-        conversation.userId,
-        messageBody,
-        documentPath
-      );
+      try {
+        const result = await this.whatsappService.sendMessage(
+          conversation.userId,
+          messageBody,
+          documentPath
+        );
+        console.log(`Document ${documentType} sent successfully`);
+        return true;
+      } catch (error) {
+        console.error(`Error sending document ${documentType}:`, error);
 
-      if (!result) {
-        throw new Error("Failed to send document via WhatsApp");
+        // If media URL fails, send just the message with the download link
+        try {
+          await this.whatsappService.sendMessage(
+            conversation.userId,
+            messageBody
+          );
+          console.log(`Document ${documentType} link sent without attachment`);
+          return true;
+        } catch (secondError) {
+          console.error("Error sending fallback message:", secondError);
+          throw new Error("Failed to send document via WhatsApp");
+        }
       }
-
-      return true;
     } catch (error) {
       console.error(`Error sending ${documentType}:`, error);
       return this.getErrorMessage(conversation.language, error.message);
@@ -1932,9 +1935,8 @@ class ConversationService {
         detailsMessage += `*पुढे काय करायचे आहे?*\n\n`;
         detailsMessage += `1️⃣. नवीन मालमत्ता शोध सुरू करा\n`;
         detailsMessage += `2️⃣. अपॉइंटमेंट तपशील पुन्हा पहा\n`;
-        detailsMessage += `3️⃣. दस्तऐवज पहा\n`;
-        detailsMessage += `4️⃣. संभाषण संपवा\n\n`;
-        detailsMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣, 2️⃣, 3️⃣, 4️⃣).`;
+        detailsMessage += `3️⃣. संभाषण संपवा\n\n`;
+        detailsMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣, 2️⃣, 3️⃣).`;
       } else {
         // English appointment details
         detailsMessage = `📅 *Appointment Details*\n\n`;
@@ -1958,10 +1960,9 @@ class ConversationService {
         // Add main menu options
         detailsMessage += `*What would you like to do next?*\n\n`;
         detailsMessage += `1️⃣. Start a new property search\n`;
-        detailsMessage += `2️⃣. View appointments Details again\n`;
-        detailsMessage += `3️⃣. View Brochure\n`;
-        detailsMessage += `4️⃣. End conversation\n\n`;
-        detailsMessage += `Reply with the number of your choice (1️⃣, 2️⃣, 3️⃣, 4️⃣).`;
+        detailsMessage += `2️⃣. View appointments Details\n`;
+        detailsMessage += `3️⃣. End conversation\n\n`;
+        detailsMessage += `Reply with the number of your choice (1️⃣, 2️⃣, 3️⃣).`;
       }
 
       return detailsMessage;
