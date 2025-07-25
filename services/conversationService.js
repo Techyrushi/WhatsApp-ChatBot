@@ -1398,9 +1398,11 @@ class ConversationService {
 
             const finalMessages = this.getFinalMessage(conversation.language);
             await this.whatsappService.sendMessage(
-              conversation.userPhone,
+              conversation.userId,
               finalMessages
             );
+
+
 
           case "2": // Floor Plans
             // First send the floor plans document
@@ -1420,7 +1422,7 @@ class ConversationService {
 
             const finalMessageTexts = this.getFinalMessage(conversation.language);
             await this.whatsappService.sendMessage(
-              conversation.userPhone,
+              conversation.userId,
               finalMessageTexts
             );
 
@@ -1439,7 +1441,7 @@ class ConversationService {
 
            const finalMessageText = this.getFinalMessage(conversation.language);
             await this.whatsappService.sendMessage(
-              conversation.userPhone,
+              conversation.userId,
               finalMessageText
             );
 
@@ -1493,7 +1495,7 @@ class ConversationService {
 
             const finalMessage = this.getFinalMessage(conversation.language);
             await this.whatsappService.sendMessage(
-              conversation.userPhone,
+              conversation.userId,
               finalMessage
             );
           } else {
