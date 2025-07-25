@@ -1402,6 +1402,8 @@ class ConversationService {
               finalMessages
             );
 
+            return "🙏🏻🙏🏻🙏🏻";
+
           case "2": // Floor Plans
             // First send the floor plans document
             const floorPlansResult = await this.sendPropertyDocument(
@@ -1426,6 +1428,8 @@ class ConversationService {
               finalMessageTexts
             );
 
+            return "🙏🏻🙏🏻🙏🏻";
+
           case "3": // Images
             // First send the property images
             const imagesResult = await this.sendPropertyImages(conversation);
@@ -1446,6 +1450,7 @@ class ConversationService {
               conversation.userId,
               finalMessageText
             );
+            return "🙏🏻🙏🏻🙏🏻";
 
           case "4": // None
             // User chose not to receive any document
@@ -1500,7 +1505,7 @@ class ConversationService {
               conversation.userId,
               finalMessage
             );
-            return null;
+            return "🙏🏻🙏🏻🙏🏻";
           } else {
             return "Please view the appointment details first by entering 2.";
           }
