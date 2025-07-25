@@ -939,11 +939,11 @@ class ConversationService {
         confirmationMessage += `🚿 जोडलेले स्वच्छतागृह\n`;
 
         if (property.builtUpArea && property.builtUpArea.value) {
-          confirmationMessage += `📐 Built-up Area: ${property.builtUpArea.value} sq.ft\n\n`;
+          confirmationMessage += `📐 Built-up Area: ${property.builtUpArea.value} sq.ft\n`;
         }
 
-        if (property.parkingSpaces && property.parkingSpaces.value) {
-          confirmationMessage += `🚗 Parking: ${property.parkingSpaces.value} पार्किंग जागा\n\n`;
+        if (property.parkingSpaces && property.parkingSpaces.fourWheeler) {
+          confirmationMessage += `🚗 Parking: ${property.parkingSpaces.fourWheeler} पार्किंग जागा\n`;
         }
 
         if (property.carpetArea && property.carpetArea.value) {
@@ -995,11 +995,11 @@ class ConversationService {
         confirmationMessage += `🚿 Attached Washroom\n`;
         // Use carpetArea if available, otherwise try builtUpArea, or skip if neither exists
         if (property.builtUpArea && property.builtUpArea.value) {
-          confirmationMessage += `📐 Built-up Area: ${property.builtUpArea.value} sq.ft\n\n`;
+          confirmationMessage += `📐 Built-up Area: ${property.builtUpArea.value} sq.ft\n`;
         }
 
-        if (property.parkingSpaces && property.parkingSpaces.value) {
-          confirmationMessage += `🚗 Parking: ${property.parkingSpaces.value} space(s)\n\n`;
+        if (property.parkingSpaces && property.parkingSpaces.fourWheeler) {
+          confirmationMessage += `🚗 Parking: ${property.parkingSpaces.fourWheeler} space(s)\n`;
         }
 
         if (property.carpetArea && property.carpetArea.value) {
