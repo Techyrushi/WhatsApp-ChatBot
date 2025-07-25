@@ -1394,9 +1394,13 @@ class ConversationService {
               return brochureResult;
             }
 
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            return this.getFinalMessage(conversation.language);
+            const finalMessages = this.getFinalMessage(conversation.language);
+            await this.whatsappService.sendMessage(
+              conversation.userPhone,
+              finalMessages
+            );
 
           case "2": // Floor Plans
             // First send the floor plans document
@@ -1412,11 +1416,13 @@ class ConversationService {
               return floorPlansResult;
             }
 
-          
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
 
-           
-            return this.getFinalMessage(conversation.language);
+            const finalMessageTexts = this.getFinalMessage(conversation.language);
+            await this.whatsappService.sendMessage(
+              conversation.userPhone,
+              finalMessageTexts
+            );
 
           case "3": // Images
             // First send the property images
@@ -1429,11 +1435,13 @@ class ConversationService {
               return imagesResult;
             }
 
-           
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            // After successfully sending the images and waiting, return the final message
-            return this.getFinalMessage(conversation.language);
+           const finalMessageText = this.getFinalMessage(conversation.language);
+            await this.whatsappService.sendMessage(
+              conversation.userPhone,
+              finalMessageText
+            );
 
           case "4": // None
             // User chose not to receive any document
@@ -1481,11 +1489,13 @@ class ConversationService {
               return brochureResult;
             }
 
-    
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
 
-           
-            return this.getFinalMessage(conversation.language);
+            const finalMessage = this.getFinalMessage(conversation.language);
+            await this.whatsappService.sendMessage(
+              conversation.userPhone,
+              finalMessage
+            );
           } else {
             return "Please view the appointment details first by entering 2.";
           }

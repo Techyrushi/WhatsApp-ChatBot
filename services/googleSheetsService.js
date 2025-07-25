@@ -56,8 +56,8 @@ class GoogleSheetsService {
       }
 
       // Format date for better readability
-      const appointmentDate = appointmentData.dateTime;
-      const formattedDate = `${appointmentDate.getDate()} ${this.getMonthName(appointmentDate.getMonth())}, ${appointmentDate.getHours()}:${String(appointmentDate.getMinutes()).padStart(2, '0')} ${appointmentDate.getHours() >= 12 ? 'PM' : 'AM'}`;
+      // const appointmentDate = appointmentData.preferredTimeText;
+      // const formattedDate = `${appointmentDate.getDate()} ${this.getMonthName(appointmentDate.getMonth())}, ${appointmentDate.getHours()}:${String(appointmentDate.getMinutes()).padStart(2, '0')} ${appointmentDate.getHours() >= 12 ? 'PM' : 'AM'}`;
       
       // Format timestamp
       const timestamp = new Date();

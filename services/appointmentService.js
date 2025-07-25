@@ -110,7 +110,7 @@ class AppointmentService {
       const appointmentData = {
         userName: populatedAppointment.userName,
         userPhone: populatedAppointment.userPhone,
-        dateTime: populatedAppointment.preferredTimeText,
+        preferredTimeText: populatedAppointment.preferredTimeText,
         // preferredTimeText:
         //   populatedAppointment.preferredTimeText ||
         //   (populatedAppointment.dateTime
