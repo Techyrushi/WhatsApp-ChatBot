@@ -1402,7 +1402,7 @@ class ConversationService {
               finalMessages
             );
 
-
+            return true;
 
           case "2": // Floor Plans
             // First send the floor plans document
@@ -1420,12 +1420,14 @@ class ConversationService {
 
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            const finalMessageTexts = this.getFinalMessage(conversation.language);
+            const finalMessageTexts = this.getFinalMessage(
+              conversation.language
+            );
             await this.whatsappService.sendMessage(
               conversation.userId,
               finalMessageTexts
             );
-
+            return true;
           case "3": // Images
             // First send the property images
             const imagesResult = await this.sendPropertyImages(conversation);
@@ -1439,12 +1441,14 @@ class ConversationService {
 
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
-           const finalMessageText = this.getFinalMessage(conversation.language);
+            const finalMessageText = this.getFinalMessage(
+              conversation.language
+            );
             await this.whatsappService.sendMessage(
               conversation.userId,
               finalMessageText
             );
-
+            return true;
           case "4": // None
             // User chose not to receive any document
             conversation.documentSelectionPhase = false;
@@ -1498,6 +1502,7 @@ class ConversationService {
               conversation.userId,
               finalMessage
             );
+            return true;
           } else {
             return "Please view the appointment details first by entering 2.";
           }
