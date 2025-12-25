@@ -71,9 +71,13 @@ app.post('/webhook', async (req, res) => {
     
     console.log(`Generated response: ${response}`);
     
-    // Send response back to WhatsApp
-    await whatsappService.sendMessage(sender, response);
-    console.log(`Response sent to ${sender}`);
+    // Send response back to WhatsApp only if response is not empty
+    if (response) {
+      await whatsappService.sendMessage(sender, response);
+      console.log(`Response sent to ${sender}`);
+    } else {
+      console.log(`No text response to send to ${sender} (template likely sent)`);
+    }
     
     res.status(200).send('OK');
   } catch (error) {
@@ -84,7 +88,7 @@ app.post('/webhook', async (req, res) => {
       if (req.body && req.body.From) {
         await whatsappService.sendMessage(
           req.body.From, 
-          ''
+          'Sorry, we are experiencing technical difficulties. Please try again later.'
         );
       }
     } catch (sendError) {

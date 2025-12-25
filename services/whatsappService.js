@@ -39,14 +39,20 @@ class WhatsAppService {
   }
 
 
-  async sendTemplate(to, templateName, parameters = []) {
+  async sendTemplate(to, templateName, parameters = {}) {
     try {
-      const message = await this.client.messages.create({
+      const extractedNumber = WhatsAppService.extractPhoneNumber(to);
+      const messageOptions = {
         from: this.fromNumber,
-        to: `whatsapp:${to}`,
-        contentSid: templateName,
-        contentVariables: JSON.stringify(parameters)
-      });
+        to: `whatsapp:${extractedNumber}`,
+        contentSid: templateName
+      };
+
+      if (parameters && Object.keys(parameters).length > 0) {
+        messageOptions.contentVariables = JSON.stringify(parameters);
+      }
+
+      const message = await this.client.messages.create(messageOptions);
       return message.sid;
     } catch (error) {
       console.error('Error sending WhatsApp template:', error);

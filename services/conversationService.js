@@ -121,7 +121,7 @@ class ConversationService {
         conversation.lastActivityTimestamp = now;
         conversation.isInactive = false;
         await conversation.save();
-        return this.getWelcomeMessage();
+        return this.sendWelcomeMessage(conversation);
       }
 
       // Handle inactivity
@@ -235,7 +235,7 @@ class ConversationService {
       conversation.matchedProperties = [];
       conversation.selectedProperty = null;
       await conversation.save();
-      return this.getWelcomeMessage(conversation.language);
+      return this.sendWelcomeMessage(conversation);
     }
 
     if (message.toLowerCase() === "help" || message.toLowerCase() === "मदत") {
@@ -251,7 +251,7 @@ class ConversationService {
       conversation.state = "welcome";
       conversation.preferences = {};
       await conversation.save();
-      return this.getWelcomeMessage(conversation.language);
+      return this.sendWelcomeMessage(conversation);
     }
 
     const state = conversation.state;
@@ -293,38 +293,16 @@ class ConversationService {
 
   async handleLanguageSelectionState(conversation, message) {
     message = await this.convertMarathiToArabicNumerals(message);
+    const normalizedMessage = message.toLowerCase().trim();
 
-    if (message && message.match(/^[1-2]$/)) {
-      const languageChoice = parseInt(message);
-
-      if (languageChoice === 1) {
-        conversation.language = "english";
-      } else if (languageChoice === 2) {
-        conversation.language = "marathi";
+    if (normalizedMessage.match(/^[1-2]$/) || normalizedMessage.includes('english') || normalizedMessage.includes('marathi') || normalizedMessage.includes('मराठी') || normalizedMessage.includes('lang_en') || normalizedMessage.includes('lang_mr')) {
+      let languageChoice = 0;
+      
+      if (normalizedMessage === '1' || normalizedMessage.includes('english') || normalizedMessage.includes('lang_en')) {
+        languageChoice = 1;
+      } else if (normalizedMessage === '2' || normalizedMessage.includes('marathi') || normalizedMessage.includes('मराठी') || normalizedMessage.includes('lang_mr')) {
+        languageChoice = 2;
       }
-
-      conversation.state = "welcome";
-      await conversation.save();
-
-      return this.getWelcomeMessage(conversation.language);
-    }
-
-    return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
-  }
-
-  getWelcomeMessage(language) {
-    if (language === "marathi") {
-      return "मालपुरे ग्रुपमध्ये आपले स्वागत आहे! 🏢\n\nआमच्या प्रीमियम कमर्शियल प्रोजेक्टची माहिती:\n\nप्रोजेक्ट: आशीर्वाद बाय मालपुरे ग्रुप\nस्थान: ठटे नगर, कॉलेज रोड, नाशिक\n✅ RERA नोंदणीकृत | वापरासाठी तयार | NMC पूर्णता प्रमाणपत्र\nपुरेशी पार्किंग | दुकाने फ्रंटेजसह | प्रीमियम ऑफिस युनिट्स\n\nकृपया तुमची पसंतीची भाषा निवडा:\n\n1️⃣. इंग्रजी\n2️⃣. मराठी (मराठी)\n\nतुमची भाषा निवडण्यासाठी फक्त (1️⃣-2️⃣) क्रमांकासह उत्तर द्या.";
-    }
-
-    return "Welcome to MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
-  }
-
-  async handleWelcomeState(conversation, message) {
-    message = await this.convertMarathiToArabicNumerals(message);
-
-    if (message && message.match(/^[1-2]$/)) {
-      const languageChoice = parseInt(message);
 
       if (languageChoice === 1) {
         conversation.language = "english";
@@ -334,15 +312,67 @@ class ConversationService {
 
       conversation.state = "property_type";
       await conversation.save();
-      return this.getPropertyTypeOptionsMessage(conversation.language);
+
+      return this.sendPropertyTypeOptionsMessage(conversation);
+    }
+
+    return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
+  }
+
+  async sendWelcomeMessage(conversation) {
+    if (process.env.SMS_CONTENT_SID_LANG_LIST) {
+      await this.whatsappService.sendTemplate(
+        conversation.userId,
+        process.env.SMS_CONTENT_SID_LANG_LIST
+      );
+      return null;
+    }
+
+    if (conversation.language === "marathi") {
+      return "मालपुरे ग्रुपमध्ये आपले स्वागत आहे! 🏢\n\nआमच्या प्रीमियम कमर्शियल प्रोजेक्टची माहिती:\n\nप्रोजेक्ट: आशीर्वाद बाय मालपुरे ग्रुप\nस्थान: ठटे नगर, कॉलेज रोड, नाशिक\n✅ RERA नोंदणीकृत | वापरासाठी तयार | NMC पूर्णता प्रमाणपत्र\nपुरेशी पार्किंग | दुकाने फ्रंटेजसह | प्रीमियम ऑफिस युनिट्स\n\nकृपया तुमची पसंतीची भाषा निवडा:\n\n1️⃣. इंग्रजी\n2️⃣. मराठी (मराठी)\n\nतुमची भाषा निवडण्यासाठी फक्त (1️⃣-2️⃣) क्रमांकासह उत्तर द्या.";
+    }
+
+    return "Welcome to MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
+  }
+
+  async handleWelcomeState(conversation, message) {
+    message = await this.convertMarathiToArabicNumerals(message);
+    const normalizedMessage = message.toLowerCase().trim();
+
+    if (normalizedMessage.match(/^[1-2]$/) || normalizedMessage.includes('english') || normalizedMessage.includes('marathi') || normalizedMessage.includes('मराठी') || normalizedMessage.includes('lang_en') || normalizedMessage.includes('lang_mr')) {
+      let languageChoice = 0;
+      
+      if (normalizedMessage === '1' || normalizedMessage.includes('english') || normalizedMessage.includes('lang_en')) {
+        languageChoice = 1;
+      } else if (normalizedMessage === '2' || normalizedMessage.includes('marathi') || normalizedMessage.includes('मराठी') || normalizedMessage.includes('lang_mr')) {
+        languageChoice = 2;
+      }
+
+      if (languageChoice === 1) {
+        conversation.language = "english";
+      } else if (languageChoice === 2) {
+        conversation.language = "marathi";
+      }
+
+      conversation.state = "property_type";
+      await conversation.save();
+      return this.sendPropertyTypeOptionsMessage(conversation);
     }
 
     // If invalid input, show welcome message again
-    return this.getWelcomeMessage();
+    return this.sendWelcomeMessage(conversation);
   }
 
-  getPropertyTypeOptionsMessage(language) {
-    if (language === "marathi") {
+  async sendPropertyTypeOptionsMessage(conversation) {
+    if (process.env.SMS_CONTENT_SID_INTEREST_LIST) {
+      await this.whatsappService.sendTemplate(
+        conversation.userId,
+        process.env.SMS_CONTENT_SID_INTEREST_LIST
+      );
+      return null;
+    }
+
+    if (conversation.language === "marathi") {
       return "कृपया आपणास रुची असलेले पर्याय निवडा:\n\n1️⃣. ऑफिस खरेदीमध्ये रुची\n2️⃣. ऑफिस भाड्याने घेण्यात रुची\n3️⃣. दुकान भाड्याने घेण्यात रुची\n\nआपला पर्याय निवडण्यासाठी फक्त क्रमांक (1️⃣-3️⃣) सह उत्तर द्या.";
     }
 
@@ -351,13 +381,24 @@ class ConversationService {
 
   async handlePropertyTypeState(conversation, message) {
     message = await this.convertMarathiToArabicNumerals(message);
+    const normalizedMessage = message.toLowerCase().trim();
     const propertyTypes = ["office_purchase", "office_lease", "shop_lease"];
 
-    if (!message.match(/^[1-3]$/)) {
-      return this.getPropertyTypeOptionsMessage(conversation.language);
+    let selection = 0;
+
+    if (normalizedMessage === '1' || normalizedMessage.includes('purchase') || normalizedMessage.includes('buy') || normalizedMessage.includes('खरेदी')) {
+      selection = 1;
+    } else if (normalizedMessage === '3' || normalizedMessage.includes('shop') || normalizedMessage.includes('दुकान')) {
+      selection = 3;
+    } else if (normalizedMessage === '2' || normalizedMessage.includes('office') || normalizedMessage.includes('lease') || normalizedMessage.includes('rent') || normalizedMessage.includes('भाड्याने')) {
+      selection = 2;
     }
 
-    const typeIndex = parseInt(message) - 1;
+    if (selection === 0) {
+      return this.sendPropertyTypeOptionsMessage(conversation);
+    }
+
+    const typeIndex = selection - 1;
     const selectedType = propertyTypes[typeIndex];
 
     conversation.preferences.propertyType = selectedType;
@@ -460,7 +501,7 @@ class ConversationService {
       await conversation.save();
 
       // Return welcome message
-      return this.getWelcomeMessage(conversation.language);
+      return this.sendWelcomeMessage(conversation);
     }
 
     // Check if user has selected a property
@@ -496,6 +537,41 @@ class ConversationService {
     await conversation.save();
 
     // Format property details
+    // If configured, send property details template
+    if (process.env.SMS_CONTENT_SID_PROPERTY_LIST) {
+      const status =
+        property.forSale && property.forLease
+          ? "Sale & Lease"
+          : property.forSale
+          ? "For Sale"
+          : property.forLease
+          ? "For Lease"
+          : "Available";
+
+      await this.whatsappService.sendTemplate(
+        conversation.userId,
+        process.env.SMS_CONTENT_SID_PROPERTY_LIST,
+        {
+          "1": property.title || "Commercial Property",
+          "2": property.location || "Nashik",
+          "3": property.type ? `${property.type} - ${property.subType || ""}` : "Commercial",
+          "4": status,
+          "5": property.carpetArea?.value
+            ? `${property.carpetArea.value} ${property.carpetArea.unit}`
+            : "N/A",
+          "6": property.builtUpArea?.value
+            ? `${property.builtUpArea.value} ${property.builtUpArea.unit}`
+            : "N/A",
+          "7": property.parkingSpaces?.fourWheeler
+            ? `${property.parkingSpaces.fourWheeler}`
+            : "0",
+          "8": property.description || "No description available",
+        }
+      );
+
+      return null;
+    }
+
     const propertyDetails = property.formatDetails(conversation.language);
 
     // Add options for scheduling a visit
@@ -520,8 +596,10 @@ class ConversationService {
 
   async handleScheduleVisitState(conversation, message) {
     message = await this.convertMarathiToArabicNumerals(message);
-    // Check user's choice
-    if (message === "1") {
+    const normalizedMessage = message.toLowerCase().trim();
+    
+    // Check user's choice with flexible matching
+    if (normalizedMessage === "1" || normalizedMessage.includes("schedule") || normalizedMessage.includes("visit") || normalizedMessage.includes("book") || normalizedMessage.includes("भेट")) {
       // User wants to schedule a visit
       conversation.state = "collect_info";
       conversation.userInfo = {}; // Initialize user info
@@ -532,7 +610,7 @@ class ConversationService {
         return "उत्तम! आपल्या भेटीची व्यवस्था करण्यासाठी, आम्हाला काही माहिती हवी आहे.\n\nकृपया आपले पूर्ण नाव प्रदान करा.";
       }
       return "Great! To arrange your visit, we need some information.\n\nPlease provide your full name.";
-    } else if (message === "2") {
+    } else if (normalizedMessage === "2" || normalizedMessage.includes("back") || normalizedMessage.includes("list") || normalizedMessage.includes("property") || normalizedMessage.includes("मागे")) {
       // User wants to go back to property list
       conversation.state = "property_match";
       conversation.selectedProperty = null;
@@ -731,6 +809,43 @@ class ConversationService {
       // Use the stored text input for display instead of formatting the Date object
       const formattedTime = conversation.userInfo.preferredTimeText;
 
+      if (process.env.SMS_CONTENT_SID_VISIT_REQUIRE_LIST) {
+        // Prepare variables for the template
+        let dateStr = formattedTime;
+        let timeStr = "";
+        
+        if (formattedTime.includes(" at ")) {
+            const parts = formattedTime.split(" at ");
+            dateStr = parts[0];
+            timeStr = parts[1];
+        } else {
+             // Try to extract time if " at " is missing but time is present
+             const timeMatch = formattedTime.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/);
+             if (timeMatch) {
+                 timeStr = timeMatch[0];
+                 dateStr = formattedTime.replace(timeStr, "").trim();
+             } else {
+                 // If we can't split, pass the whole thing as date and put a generic time or "-"
+                 // But variables cannot be empty/null for Twilio
+                 timeStr = "Requested Time";
+             }
+        }
+        
+        // Ensure variables are not empty
+        if (!dateStr || dateStr.trim() === "") dateStr = "Upcoming Date";
+        if (!timeStr || timeStr.trim() === "") timeStr = "Requested Time";
+
+        await this.whatsappService.sendTemplate(
+            conversation.userId, 
+            process.env.SMS_CONTENT_SID_VISIT_REQUIRE_LIST,
+            {
+                "1": dateStr,
+                "2": timeStr
+            }
+        );
+        return null;
+      }
+
       // Ask for special requirements
       if (conversation.language === "marathi") {
         return (
@@ -757,9 +872,31 @@ class ConversationService {
 
     // If we have name, phone, time but no special requirements
     if (!userInfo.specialRequirements) {
+      // Normalize message for list picker IDs
+      const normalizedReq = message.trim();
+      
+      // Map list picker IDs to readable text and choice numbers
+      let requirementChoice = 0;
+      let isListPickerId = false;
+
+      if (normalizedReq === 'NO_REQUIREMENTS') {
+        requirementChoice = 1;
+        isListPickerId = true;
+      } else if (normalizedReq === 'FINANCING_INFO') {
+        requirementChoice = 2;
+        isListPickerId = true;
+      } else if (normalizedReq === 'NEARBY_AMENITIES') {
+        requirementChoice = 3;
+        isListPickerId = true;
+      } else if (normalizedReq === 'OTHER_REQUIREMENT') {
+        requirementChoice = 4;
+        isListPickerId = true;
+      } else if (normalizedReq.match(/^[1-4]$/)) {
+        requirementChoice = parseInt(normalizedReq);
+      }
+
       // Check if this is a valid selection or custom message
-      if (message.match(/^[1-4]$/)) {
-        const requirementChoice = parseInt(message.trim());
+      if (requirementChoice > 0) {
         let specialRequirements = "";
 
         if (conversation.language === "marathi") {
@@ -1032,25 +1169,91 @@ class ConversationService {
         // Add brochure notification
         confirmationMessage += `*We are sending you the property brochure. Please wait a moment.*\n\n`;
 
-        // Add what's next options
-        confirmationMessage += `*What would you like to do next?*\n\n`;
-        confirmationMessage += `1️⃣. Start a new property search\n`;
-        confirmationMessage += `2️⃣. View appointment details\n`;
-        confirmationMessage += `3️⃣. End conversation\n\n`;
-        confirmationMessage += `Reply with the number of your choice (1️⃣-3️⃣).`;
+        if (!process.env.SMS_CONTENT_SID_VISIT_CONFIRM_LIST) {
+          // Add what's next options
+          confirmationMessage += `*What would you like to do next?*\n\n`;
+          confirmationMessage += `1️⃣. Start a new property search\n`;
+          confirmationMessage += `2️⃣. View appointment details\n`;
+          confirmationMessage += `3️⃣. End conversation\n\n`;
+          confirmationMessage += `Reply with the number of your choice (1️⃣-3️⃣).`;
+        }
       }
 
-      // Send the confirmation message first
-      await this.whatsappService.sendMessage(
-        conversation.userId,
-        confirmationMessage
-      );
+      // Send the confirmation message first if template is NOT configured
+      if (!process.env.SMS_CONTENT_SID_VISIT_CONFIRM_LIST) {
+        await this.whatsappService.sendMessage(
+          conversation.userId,
+          confirmationMessage
+        );
+      }
+
+      if (process.env.SMS_CONTENT_SID_VISIT_CONFIRM_LIST) {
+        // Prepare variables for the confirmation template
+        let dateStr = formattedTime;
+        let timeStr = "";
+        
+        if (formattedTime.includes(" at ")) {
+            const parts = formattedTime.split(" at ");
+            dateStr = parts[0];
+            timeStr = parts[1];
+        } else {
+            // Try to extract time if " at " is missing but time is present
+            const timeMatch = formattedTime.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/);
+            if (timeMatch) {
+                timeStr = timeMatch[0];
+                dateStr = formattedTime.replace(timeStr, "").trim();
+            } else {
+                timeStr = "Requested Time";
+            }
+        }
+        
+        if (!dateStr || dateStr.trim() === "") dateStr = "Upcoming Date";
+        if (!timeStr || timeStr.trim() === "") timeStr = "Requested Time";
+
+        // Combine date and time for the single date/time slot (variable 3)
+        const combinedDateTime = `${dateStr} (${timeStr})`;
+
+        const agentName = "Aditya Malpure";
+        const agentPhone = "+919403117110";
+        const specialReq = conversation.userInfo.specialRequirements || "None";
+
+        await this.whatsappService.sendTemplate(
+            conversation.userId, 
+            process.env.SMS_CONTENT_SID_VISIT_CONFIRM_LIST,
+            {
+                "1": conversation.userInfo.name || "Valued Customer",
+                "2": property.title || "Property",
+                "3": combinedDateTime,
+                "4": property.location || "Nashik",
+                "5": property.type || "Commercial",
+                "6": property.builtUpArea?.value ? `${property.builtUpArea.value} ${property.builtUpArea.unit}` : "N/A",
+                "7": property.carpetArea?.value ? `${property.carpetArea.value} ${property.carpetArea.unit}` : "N/A",
+                "8": property.parkingSpaces?.fourWheeler ? `${property.parkingSpaces.fourWheeler}` : "0",
+                "9": agentName,
+                "10": agentPhone,
+                "11": specialReq,
+                "12": "shortly" 
+            }
+        );
+      }
 
       // Small delay before sending document
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Automatically send the brochure
       await this.sendPropertyDocument(conversation, "brochure");
+
+      // Send "What's Next" menu using template if available
+      if (process.env.SMS_CONTENT_SID_APPOINTMENT_END_OPTIONS) {
+          // Small delay to ensure order
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          
+          await this.whatsappService.sendTemplate(
+            conversation.userId,
+            process.env.SMS_CONTENT_SID_APPOINTMENT_END_OPTIONS,
+            {} // No variables needed for this menu usually, or check if it needs variables
+          );
+      }
 
       // Return empty string since we've already sent the message
       return "";
@@ -1253,7 +1456,7 @@ class ConversationService {
       await conversation.save();
 
       // Return welcome message
-      return this.getWelcomeMessage(conversation.language);
+      return this.sendWelcomeMessage(conversation);
     } else if (message === "2") {
       // User wants to view appointment details
       let appointment;
@@ -1394,12 +1597,15 @@ class ConversationService {
 
       // Sanitize and normalize input
       message = await this.convertMarathiToArabicNumerals(message);
-      message = message.trim().toLowerCase();
+      const normalizedMessage = message.trim().toLowerCase();
 
       // If already in document selection phase, handle document choices
       if (conversation.documentSelectionPhase) {
-        switch (message) {
+        switch (normalizedMessage) {
           case "1": // Property Brochure
+          // Check for text variants too
+          case "brochure":
+          case "download":
             // First send the property document brochure
             const brochureResult = await this.sendPropertyDocument(
               conversation,
@@ -1486,8 +1692,9 @@ class ConversationService {
       }
 
       // If NOT in document selection phase, handle main menu options
-      switch (message) {
-        case "1": // User wants to start a new property search
+      // Use flexible matching for main menu options
+      if (normalizedMessage === "1" || normalizedMessage.includes("new search") || normalizedMessage.includes("start") || normalizedMessage.includes("नवीन")) {
+          // User wants to start a new property search
           conversation.state = "welcome";
           conversation.preferences = {};
           conversation.matchedProperties = [];
@@ -1495,48 +1702,60 @@ class ConversationService {
           conversation.viewingAppointmentDetails = false;
           conversation.documentSelectionPhase = false;
           await conversation.save();
-          return this.getWelcomeMessage(conversation.language);
-
-        case "2":
+          return this.sendWelcomeMessage(conversation);
+      } 
+      
+      if (normalizedMessage === "2" || normalizedMessage.includes("view") || normalizedMessage.includes("appointment") || normalizedMessage.includes("details") || normalizedMessage.includes("तपशील")) {
           conversation.viewingAppointmentDetails = true;
           await conversation.save();
           return await this.getAppointmentDetails(conversation);
+      }
 
-        case "3": // End conversation
+      if (normalizedMessage === "3" || normalizedMessage.includes("end") || normalizedMessage.includes("stop") || normalizedMessage.includes("exit") || normalizedMessage.includes("संपवा")) {
+          // End conversation
           conversation.viewingAppointmentDetails = false;
           conversation.documentSelectionPhase = false;
           await conversation.save();
-          return this.getFinalMessage(conversation.language);
 
-        case "change language":
-        case "भाषा बदला":
+          if (process.env.SMS_CONTENT_SID_CONVERSATION_END_OPTIONS) {
+              await this.whatsappService.sendTemplate(
+                  conversation.userId,
+                  process.env.SMS_CONTENT_SID_CONVERSATION_END_OPTIONS,
+                  {}
+              );
+              return "";
+          }
+          return this.getFinalMessage(conversation.language);
+      }
+
+      if (normalizedMessage === "change language" || normalizedMessage === "भाषा बदला") {
           conversation.state = "welcome";
           await conversation.save();
           return "Welcome to MALPURE GROUP! 🏢\n\nHere's our premium commercial project overview:\n\nProject: AASHIRWAD by Malpure Group\nLocation: Thatte Nagar, College Road, Nashik\n✅ RERA Registered | Ready-to-use | NMC Completion Certificate\nAmple Parking | Shops with Frontage | Premium Office Units\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
-
-        case "help":
-          return this.getHelpMessage(conversation.state, conversation.language);
-
-        default:
-          // Check if user is asking for documents
-          if (
-            message.includes("document") ||
-            message.includes("brochure") ||
-            message.includes("floor plan") ||
-            message.includes("image") ||
-            message.includes("दस्तऐवज") ||
-            message.includes("ब्रोशर") ||
-            message.includes("फ्लोअर प्लॅन") ||
-            message.includes("चित्र")
-          ) {
-            conversation.documentSelectionPhase = true;
-            await conversation.save();
-            return this.getDocumentOptionsMessage(conversation);
-          }
-
-          // Fallback handling for unrecognized input
-          return this.getUnrecognizedInputMessage(conversation.language);
       }
+      
+      if (normalizedMessage === "help") {
+          return this.getHelpMessage(conversation.state, conversation.language);
+      }
+
+      // Check if user is asking for documents
+      if (
+        normalizedMessage.includes("document") ||
+        normalizedMessage.includes("brochure") ||
+        normalizedMessage.includes("floor plan") ||
+        normalizedMessage.includes("image") ||
+        normalizedMessage.includes("दस्तऐवज") ||
+        normalizedMessage.includes("ब्रोशर") ||
+        normalizedMessage.includes("फ्लोअर प्लॅन") ||
+        normalizedMessage.includes("चित्र")
+      ) {
+        conversation.documentSelectionPhase = true;
+        await conversation.save();
+        return this.getDocumentOptionsMessage(conversation);
+      }
+
+      // Fallback handling for unrecognized input
+      return this.getUnrecognizedInputMessage(conversation.language);
     } catch (error) {
       console.error("Error in handleCompletedState:", error);
       return this.getErrorMessage(
@@ -1601,6 +1820,19 @@ class ConversationService {
         return await this.sendPropertyImages(conversation);
       } else {
         throw new Error("Invalid document type");
+      }
+
+      if (process.env.SMS_CONTENT_SID_PROPERTY_BROCHURE_DOWNLOAD) {
+        // Send brochure via template
+        await this.whatsappService.sendTemplate(
+          conversation.userId,
+          process.env.SMS_CONTENT_SID_PROPERTY_BROCHURE_DOWNLOAD,
+          {
+            "1": displayName,
+            "2": documentUrl
+          }
+        );
+        return true;
       }
 
       const messageBody =
@@ -1930,13 +2162,6 @@ class ConversationService {
         if (appointment.notes && appointment.notes !== "None") {
           detailsMessage += `✏️ *विशेष आवश्यकता:* ${appointment.notes}\n`;
         }
-
-        // Add main menu options
-        detailsMessage += `*पुढे काय करायचे आहे?*\n\n`;
-        detailsMessage += `1️⃣. नवीन मालमत्ता शोध सुरू करा\n`;
-        detailsMessage += `2️⃣. अपॉइंटमेंट तपशील पुन्हा पहा\n`;
-        detailsMessage += `3️⃣. संभाषण संपवा\n\n`;
-        detailsMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣, 2️⃣, 3️⃣).`;
       } else {
         // English appointment details
         detailsMessage = `📅 *Appointment Details*\n\n`;
@@ -1956,16 +2181,48 @@ class ConversationService {
         if (appointment.notes && appointment.notes !== "None") {
           detailsMessage += `✏️ *Special Requirements:* ${appointment.notes}\n`;
         }
-
-        // Add main menu options
-        detailsMessage += `*What would you like to do next?*\n\n`;
-        detailsMessage += `1️⃣. Start a new property search\n`;
-        detailsMessage += `2️⃣. View appointments Details\n`;
-        detailsMessage += `3️⃣. End conversation\n\n`;
-        detailsMessage += `Reply with the number of your choice (1️⃣, 2️⃣, 3️⃣).`;
       }
 
-      return detailsMessage;
+      // Send the details message first
+      await this.whatsappService.sendMessage(
+        conversation.userId,
+        detailsMessage
+      );
+
+      // Add main menu options
+      if (process.env.SMS_CONTENT_SID_APPOINTMENT_END_OPTIONS) {
+          // Small delay to ensure order
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          
+          await this.whatsappService.sendTemplate(
+            conversation.userId,
+            process.env.SMS_CONTENT_SID_APPOINTMENT_END_OPTIONS,
+            {}
+          );
+      } else {
+          // Fallback text menu
+          let menuMessage = "";
+          if (conversation.language === "marathi") {
+            menuMessage += `\n*पुढे काय करायचे आहे?*\n\n`;
+            menuMessage += `1️⃣. नवीन मालमत्ता शोध सुरू करा\n`;
+            menuMessage += `2️⃣. अपॉइंटमेंट तपशील पुन्हा पहा\n`;
+            menuMessage += `3️⃣. संभाषण संपवा\n\n`;
+            menuMessage += `आपल्या निवडीच्या क्रमांकासह उत्तर द्या (1️⃣, 2️⃣, 3️⃣).`;
+          } else {
+            menuMessage += `\n*What would you like to do next?*\n\n`;
+            menuMessage += `1️⃣. Start a new property search\n`;
+            menuMessage += `2️⃣. View appointments Details\n`;
+            menuMessage += `3️⃣. End conversation\n\n`;
+            menuMessage += `Reply with the number of your choice (1️⃣, 2️⃣, 3️⃣).`;
+          }
+          
+          await this.whatsappService.sendMessage(
+            conversation.userId,
+            menuMessage
+          );
+      }
+
+      return "";
     } catch (error) {
       console.error("Error getting appointment details:", error);
       const errorMsg =
