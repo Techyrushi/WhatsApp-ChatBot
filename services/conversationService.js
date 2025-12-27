@@ -291,22 +291,30 @@ class ConversationService {
     return response;
   }
 
-  async handleLanguageSelectionState(conversation, message) {
+  async processLanguageSelection(conversation, message) {
     message = await this.convertMarathiToArabicNumerals(message);
     const normalizedMessage = message.toLowerCase().trim();
 
-    if (normalizedMessage.match(/^[1-2]$/) || normalizedMessage.includes('english') || normalizedMessage.includes('marathi') || normalizedMessage.includes('मराठी') || normalizedMessage.includes('lang_en') || normalizedMessage.includes('lang_mr')) {
-      let languageChoice = 0;
-      
-      if (normalizedMessage === '1' || normalizedMessage.includes('english') || normalizedMessage.includes('lang_en')) {
-        languageChoice = 1;
-      } else if (normalizedMessage === '2' || normalizedMessage.includes('marathi') || normalizedMessage.includes('मराठी') || normalizedMessage.includes('lang_mr')) {
-        languageChoice = 2;
-      }
+    // Expanded matching logic
+    const isEnglish = 
+        normalizedMessage === '1' || 
+        normalizedMessage === '1.' ||
+        normalizedMessage === 'one' ||
+        normalizedMessage.includes('english') || 
+        normalizedMessage.includes('lang_en');
+        
+    const isMarathi = 
+        normalizedMessage === '2' || 
+        normalizedMessage === '2.' ||
+        normalizedMessage === 'two' ||
+        normalizedMessage.includes('marathi') || 
+        normalizedMessage.includes('मराठी') || 
+        normalizedMessage.includes('lang_mr');
 
-      if (languageChoice === 1) {
+    if (isEnglish || isMarathi) {
+      if (isEnglish) {
         conversation.language = "english";
-      } else if (languageChoice === 2) {
+      } else {
         conversation.language = "marathi";
       }
 
@@ -315,6 +323,13 @@ class ConversationService {
 
       return this.sendPropertyTypeOptionsMessage(conversation);
     }
+
+    return null;
+  }
+
+  async handleLanguageSelectionState(conversation, message) {
+    const response = await this.processLanguageSelection(conversation, message);
+    if (response) return response;
 
     return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
   }
@@ -336,28 +351,8 @@ class ConversationService {
   }
 
   async handleWelcomeState(conversation, message) {
-    message = await this.convertMarathiToArabicNumerals(message);
-    const normalizedMessage = message.toLowerCase().trim();
-
-    if (normalizedMessage.match(/^[1-2]$/) || normalizedMessage.includes('english') || normalizedMessage.includes('marathi') || normalizedMessage.includes('मराठी') || normalizedMessage.includes('lang_en') || normalizedMessage.includes('lang_mr')) {
-      let languageChoice = 0;
-      
-      if (normalizedMessage === '1' || normalizedMessage.includes('english') || normalizedMessage.includes('lang_en')) {
-        languageChoice = 1;
-      } else if (normalizedMessage === '2' || normalizedMessage.includes('marathi') || normalizedMessage.includes('मराठी') || normalizedMessage.includes('lang_mr')) {
-        languageChoice = 2;
-      }
-
-      if (languageChoice === 1) {
-        conversation.language = "english";
-      } else if (languageChoice === 2) {
-        conversation.language = "marathi";
-      }
-
-      conversation.state = "property_type";
-      await conversation.save();
-      return this.sendPropertyTypeOptionsMessage(conversation);
-    }
+    const response = await this.processLanguageSelection(conversation, message);
+    if (response) return response;
 
     // If invalid input, show welcome message again
     return this.sendWelcomeMessage(conversation);
