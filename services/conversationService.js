@@ -324,12 +324,12 @@ class ConversationService {
       return this.sendPropertyTypeOptionsMessage(conversation);
     }
 
-    return null;
+    return false;
   }
 
   async handleLanguageSelectionState(conversation, message) {
     const response = await this.processLanguageSelection(conversation, message);
-    if (response) return response;
+    if (response !== false) return response;
 
     return "Welcome to MALPURE GROUP! 🏢\n\nPlease select your preferred language:\n\n1️⃣. English\n2️⃣. मराठी (Marathi)\n\nReply with just the number (1️⃣-2️⃣) to select your language.";
   }
@@ -352,7 +352,7 @@ class ConversationService {
 
   async handleWelcomeState(conversation, message) {
     const response = await this.processLanguageSelection(conversation, message);
-    if (response) return response;
+    if (response !== false) return response;
 
     // If invalid input, show welcome message again
     return this.sendWelcomeMessage(conversation);
